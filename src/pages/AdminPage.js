@@ -2,7 +2,7 @@
  * USES: Top-level container for the Administrator experience.
  * SUPPORT: Orchestrates the Layout, Settings, Driver Management, and Dashboard sub-components within the Admin role context.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import Dashboard from '../components/Dashboard';
 import DriverManagement from '../components/DriverManagement';
@@ -82,8 +82,15 @@ const Icons = {
     )
 };
 
-const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAddOrder, onDeleteOrder, onLogout, onToggleRole, drivers, onAddDriver, onUpdateDriver, stats }) => {
+const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAddOrder, onDeleteOrder, onLogout, onToggleRole, drivers, onAddDriver, onUpdateDriver, gpsStatus, stats }) => {
     const [activeTab, setActiveTab] = useState('overview');
+
+    // Live clock — ticks every second so header shows real time
+    const [clockTime, setClockTime] = useState(new Date());
+    useEffect(() => {
+        const t = setInterval(() => setClockTime(new Date()), 1000);
+        return () => clearInterval(t);
+    }, []);
 
     const SidebarItem = ({ id, label, icon }) => (
         <button
@@ -150,7 +157,7 @@ const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAd
                             SYSTEM LIVE
                         </div>
                         <div className="clock-widget">
-                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {clockTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </div>
                     </div>
                 </header>
@@ -171,6 +178,7 @@ const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAd
                             drivers={drivers}
                             onToggleRole={onToggleRole}
                             stats={stats}
+                            gpsStatus={gpsStatus}
                         />
                     ) : activeTab === 'smart_router' ? (
                         <SmartRouter />

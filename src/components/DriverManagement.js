@@ -6,7 +6,6 @@ import React, { useState } from 'react';
 
 import './DriverManagement.css';
 import Dashboard from './Dashboard';
-import { optimizeRoute } from '../logic/optimizer';
 
 // mockDrivers removed - using externalDrivers from props
 
@@ -36,7 +35,7 @@ const DriverManagementIcons = {
     )
 };
 
-const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder, onDeleteOrder, externalDrivers = [], onAddDriver, onRecalculate, onToggleRole }) => {
+const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder, onDeleteOrder, externalDrivers = [], onAddDriver, onUpdateDriver, onRecalculate, onToggleRole }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDriver, setSelectedDriver] = useState(null);
     const fleet = externalDrivers.length > 0 ? externalDrivers : [];
@@ -170,7 +169,10 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
 
         // Calculate the optimized route uniquely for this driver's orders
         const pendingDriverOrders = driverOrders.filter(o => o.status === 'Pending');
-        const driverOptimizedOrders = optimizeRoute({ lat: 0, lng: 0 }, pendingDriverOrders).orderedRoute;
+
+        // NOTE: optimizeRoute is async. Per-driver route is computed in the Dashboard
+        // via the onRecalculate prop which feeds back through the global route state.
+        const driverOptimizedOrders = route.filter(o => o.driverId === selectedDriver.id);
 
         return (
             <div className="driver-management-container" style={{ paddingBottom: '2rem' }}>

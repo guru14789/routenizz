@@ -25,14 +25,21 @@
  * @param {Function} calculateTotalCost - A function that takes a route array and returns its total cost.
  * @returns {Array} The optimized route after local search.
  */
+// Maximum improvement passes to prevent O(n²) × async-call explosion on large routes.
+// At 20 stops, uncapped 2-opt can fire 400+ API calls per pass. 50 passes is more than
+// sufficient to reach a well-optimised local minimum in practice.
+const MAX_ITERATIONS = 50;
+
 export const applyTwoOpt = async (route, calculateTotalCost) => {
     let bestRoute = [...route];
     let bestCost = await calculateTotalCost(bestRoute);
     let improved = true;
+    let iteration = 0;
 
-    // Continue looping as long as we find improvements
-    while (improved) {
+    // Continue looping as long as we find improvements, up to MAX_ITERATIONS
+    while (improved && iteration < MAX_ITERATIONS) {
         improved = false;
+        iteration++;
 
         // Iterate through all pairs of stops (i, j)
         for (let i = 0; i < bestRoute.length - 1; i++) {
@@ -42,7 +49,7 @@ export const applyTwoOpt = async (route, calculateTotalCost) => {
                 const newRoute = twoOptSwap(bestRoute, i, j);
                 const newCost = await calculateTotalCost(newRoute);
 
-                // If the swap results in a lower cost, update the best route
+                // If the swap results in a lower cost, keep it and restart the pass
                 if (newCost < bestCost) {
                     bestRoute = newRoute;
                     bestCost = newCost;

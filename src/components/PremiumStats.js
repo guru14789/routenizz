@@ -89,6 +89,10 @@ const PremiumStats = ({ orders, route, onActiveOrdersClick, onRouteStopsClick, o
 
     const [realDistance, setRealDistance] = useState("0.0");
 
+    // Stable key: only changes when route length or first/last stop IDs change
+    // Avoids firing the expensive OSRM fetch on every parent re-render
+    const routeKey = `${route.length}-${route[0]?.id || ''}-${route[route.length - 1]?.id || ''}`;
+
     useEffect(() => {
         const getDistanceData = async () => {
             if (route && route.length > 1) {
@@ -130,7 +134,7 @@ const PremiumStats = ({ orders, route, onActiveOrdersClick, onRouteStopsClick, o
         };
 
         getDistanceData();
-    }, [route]);
+    }, [routeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className={`premium-stats-container ${compact ? 'compact-grid' : ''} ${vertical ? 'vertical-stack' : ''}`}>
@@ -140,7 +144,7 @@ const PremiumStats = ({ orders, route, onActiveOrdersClick, onRouteStopsClick, o
                 unit="Deliveries"
                 icon={<Icons.Package />}
                 colorClass="stat-blue"
-                trend="12% vs last hr"
+                trend={activeOrders > 0 ? `${activeOrders} pending` : 'All clear'}
                 onClick={onActiveOrdersClick}
                 compact={compact}
             />

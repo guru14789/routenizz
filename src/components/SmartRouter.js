@@ -2,21 +2,26 @@
  * USES: Standalone AI Routing module.
  * SUPPORT: Provides an interactive map interface to test point-to-point routing using the LightGBM traffic prediction engine.
  */
-import React, { useState, useEffect } from 'react';
-
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { BarChart, Bar, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchOptimizedRoute } from '../logic/streetRouting';
 import './SmartRouter.css';
 
 const MapController = ({ coords }) => {
     const map = useMap();
+    // Stable key: only recalculates bounds when first or last point changes
+    const coordKey = coords?.length
+        ? `${coords[0]}|${coords[coords.length - 1]}|${coords.length}`
+        : '';
+
     useEffect(() => {
         if (!coords || coords.length === 0) return;
         const bounds = L.latLngBounds(coords);
         map.fitBounds(bounds, { padding: [40, 40], animate: true });
-    }, [JSON.stringify(coords), map]);
+    }, [coordKey, map]); // eslint-disable-line react-hooks/exhaustive-deps
     return null;
 };
 
@@ -25,15 +30,38 @@ const SmartRouter = () => {
         const settings = JSON.parse(localStorage.getItem('route_settings')) || {};
         return { lat: parseFloat(settings.officeLat) || 13.0827, lng: parseFloat(settings.officeLng) || 80.2707 };
     });
-    const [destination, setDestination] = useState(() => {
-        const settings = JSON.parse(localStorage.getItem('route_settings')) || {};
-        return { lat: parseFloat(settings.officeLat) || 13.0827, lng: parseFloat(settings.officeLng) || 80.2707 };
-    });
+    // Default destination to a different coordinate (Chennai Central Station)
+    // so origin ≠ destination is guaranteed on first open
+    const [destination, setDestination] = useState({ lat: 13.0604, lng: 80.2496 });
     const [isLoading, setIsLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
 
+    // Validate a single coordinate field (lat or lng) and return an error string or null
+    const validateCoord = (value, type) => {
+        const n = parseFloat(value);
+        if (isNaN(n)) return `${type} must be a number`;
+        if (type === 'lat' && (n < -90 || n > 90)) return 'Latitude must be between -90 and 90';
+        if (type === 'lng' && (n < -180 || n > 180)) return 'Longitude must be between -180 and 180';
+        return null;
+    };
+
+    const isSameLocation =
+        Math.abs(origin.lat - destination.lat) < 0.0001 &&
+        Math.abs(origin.lng - destination.lng) < 0.0001;
+
     const handleRunOptimization = async () => {
+        // Validate all four fields before calling the API
+        const latErrors = [
+            validateCoord(origin.lat, 'lat'),
+            validateCoord(origin.lng, 'lng'),
+            validateCoord(destination.lat, 'lat'),
+            validateCoord(destination.lng, 'lng'),
+        ].filter(Boolean);
+
+        if (latErrors.length > 0) { setError(latErrors[0]); return; }
+        if (isSameLocation) { setError('Origin and destination cannot be the same location.'); return; }
+
         setIsLoading(true);
         setError(null);
         try {
@@ -41,7 +69,7 @@ const SmartRouter = () => {
             if (data) {
                 setResult(data);
             } else {
-                setError("Could not connect to the SmartRouteEngine. Ensure Node backend and ML API are running.");
+                setError('Could not connect to the SmartRouteEngine. Ensure the ML API is running.');
             }
         } catch (err) {
             setError(err.message);
@@ -109,7 +137,8 @@ const SmartRouter = () => {
                     <button
                         className={`sr-action-btn ${isLoading ? 'is-loading' : ''}`}
                         onClick={handleRunOptimization}
-                        disabled={isLoading}
+                        disabled={isLoading || isSameLocation}
+                        title={isSameLocation ? 'Origin and destination must be different' : ''}
                     >
                         {isLoading ? 'ANALYZING TRAFFIC...' : 'GET OPTIMUM ROUTE'}
                     </button>
@@ -129,25 +158,26 @@ const SmartRouter = () => {
                         </div>
 
                         <div className="congestion-analysis">
-                            <span className="label">ROUTE CONGESTION FEEDBACK</span>
+                            <span className="label">ROUTE EFFICIENCY GAIN</span>
                             <div className="chart-mini">
                                 <ResponsiveContainer width="100%" height={80}>
                                     <BarChart data={[
-                                        { name: 'Start', val: 0.2 },
-                                        { name: 'Mid 1', val: 0.8 },
-                                        { name: 'Mid 2', val: 0.5 },
-                                        { name: 'End', val: 0.3 }
+                                        { name: 'Base', val: 1.0 },
+                                        { name: 'Optimized', val: Math.max(0.1, 1.0 - (result.optimization_score || 0) / 100) },
                                     ]}>
                                         <Bar dataKey="val">
-                                            {[0.2, 0.8, 0.5, 0.3].map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry > 0.6 ? '#f43f5e' : '#6366f1'} />
+                                            {[1.0, Math.max(0.1, 1.0 - (result.optimization_score || 0) / 100)].map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={index === 0 ? '#f43f5e' : '#6366f1'} />
                                             ))}
                                         </Bar>
-                                        <Tooltip hideCursor />
+                                        <Tooltip hideCursor formatter={(v) => [`${(v * 100).toFixed(0)}%`, 'Relative Cost']} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                            <p className="sr-note">Engine detected a congestion spike in the second quadrant of the route. ETA adjusted by +12 minutes.</p>
+                            {result.optimization_score > 0
+                                ? <p className="sr-note">ML engine achieved <strong>{result.optimization_score.toFixed(1)}% improvement</strong> over the baseline route.</p>
+                                : <p className="sr-note">Route already near-optimal. No significant improvement detected.</p>
+                            }
                         </div>
 
                         <div className="ml-badge-premium">

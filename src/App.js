@@ -148,12 +148,13 @@ function AppContent() { // Inner component to access the useNavigate hook
         saveToStorage('route_index', currentStopIndex);
         saveToStorage('route_status', routeStatus);
 
-        // Stats calculation logic for the mini-dashboard
+        // Stats calculation — use actual route distance where available,
+        // fall back to a per-stop heuristic only when no route exists yet.
         const safeOrders = Array.isArray(orders) ? orders : [];
-        const estDistance = safeOrders.length * 5; // Heuristic distance
+        const routeDistance = stats.totalDistance || (safeOrders.length * 5);
         const currentZone = getCurrentTrafficZone() || "low";
         const trafficMultiplier = getTrafficMultiplier(currentZone) || 1.0;
-        const baseFuel = calculateFuelConsumption(estDistance, 1.0, 0.15) || 0;
+        const baseFuel = calculateFuelConsumption(routeDistance, 1.0, 0.15) || 0;
         const fuel = baseFuel * trafficMultiplier;
         const carbon = calculateCarbonFootprint(fuel) || 0;
 
@@ -230,8 +231,15 @@ function AppContent() { // Inner component to access the useNavigate hook
         finally { setIsCalculating(false); }
     };
 
-    // Auto-Optimize when order volume changes
-    useEffect(() => { if (orders.length > 0) handleRecalculateRoute(); }, [orders]);
+    // Auto-Optimize when PENDING order count changes (not on every status update).
+    // Debounced 800ms to avoid firing on rapid Firestore batch syncs.
+    useEffect(() => {
+        const pendingCount = orders.filter(o => o.status === 'Pending').length;
+        if (pendingCount === 0) return;
+
+        const timer = setTimeout(() => { handleRecalculateRoute(); }, 800);
+        return () => clearTimeout(timer);
+    }, [orders.filter(o => o.status === 'Pending').length]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 7 — Event Handlers & Data Mutations
     const handleLogin = (u) => { setUser(u); u.role === 'admin' ? navigate('/admin') : navigate('/driver'); };
@@ -289,7 +297,7 @@ function AppContent() { // Inner component to access the useNavigate hook
 
             <Route path="/admin" element={
                 <ProtectedRoute user={user} overrideRole={userOverrideRole} allowedRole="admin">
-                    <AdminPage orders={orders} route={route} setRoute={setRoute} isCalculating={isCalculating} onRecalculate={handleRecalculateRoute} onAddOrder={handleAddOrder} onDeleteOrder={handleDeleteOrder} onLogout={handleLogout} onToggleRole={toggleRole} drivers={drivers} onAddDriver={handleAddDriver} onUpdateDriver={handleUpdateDriver} />
+                    <AdminPage orders={orders} route={route} setRoute={setRoute} isCalculating={isCalculating} onRecalculate={handleRecalculateRoute} onAddOrder={handleAddOrder} onDeleteOrder={handleDeleteOrder} onLogout={handleLogout} onToggleRole={toggleRole} drivers={drivers} onAddDriver={handleAddDriver} onUpdateDriver={handleUpdateDriver} gpsStatus={gpsStatus} />
                 </ProtectedRoute>
             } />
 

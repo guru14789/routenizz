@@ -82,18 +82,28 @@ const MapController = ({ position, isNavigating, allCoords, distToTurn = 1000 })
 
 const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpdate, liveLocation, stops = [] }) => {
     const isUsingRealGPS = !!liveLocation;
+
+    // Stable key for routeCoordinates - avoids JSON.stringify on every render
+    const routeCoordsKey = `${routeCoordinates.length}|${routeCoordinates[0]}|${routeCoordinates[routeCoordinates.length - 1]}`;
+
     // Memoize the derived coordinates to prevent infinite update cycles
     const validCoords = React.useMemo(() => (routeCoordinates || []).filter(c =>
         Array.isArray(c) &&
         c.length >= 2 &&
         typeof c[0] === 'number' && !isNaN(c[0]) &&
         typeof c[1] === 'number' && !isNaN(c[1])
-    ), [JSON.stringify(routeCoordinates)]);
+    ), [routeCoordsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const [currentIndex, setCurrentIndex] = useState(0);
     const [simulatedPos, setSimulatedPos] = useState(validCoords[0] || [13.0827, 80.2707]);
     const [streetPath, setStreetPath] = useState([]);
     const [navSteps, setNavSteps] = useState([]);
+
+    // Stable key: only recomputes street path when boundary coords change
+    const coordKey = useMemo(() => {
+        if (!validCoords.length) return '';
+        return `${validCoords.length}|${validCoords[0]}|${validCoords[validCoords.length - 1]}`;
+    }, [validCoords]);
 
     // Safety check for empty path
     const pathArray = useMemo(() => streetPath.length > 0 ? streetPath : validCoords, [streetPath, validCoords]);
@@ -114,7 +124,7 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
             setNavSteps(result.steps || []);
         };
         getStreetPath();
-    }, [JSON.stringify(validCoords)]);
+    }, [coordKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Simulate smoother movement ONLY in simulation mode
     useEffect(() => {
@@ -180,7 +190,7 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
         } else {
             prevLocRef.current = liveLocation;
         }
-    }, [liveLocation, isUsingRealGPS, pathArray]);
+    }, [liveLocation, isUsingRealGPS, pathArray, isNavigating]); // isNavigating added: controls reroute trigger
 
     // Handle physics and side effects of index changes safely
     useEffect(() => {
@@ -211,16 +221,8 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
 
         // Proximity Navigation: Find distance to the upcoming turn
         if (onNavUpdate && navSteps.length > 0) {
-            // Find the upcoming step (the one we haven't reached yet)
-            // Steps are linear, so we find the first one whose coordinate is AFTER our current index point
-            const upcomingStep = navSteps.find(s => {
-                // Approximate coordinate matching
-                const stepLoc = s.location;
-                const pathPoint = newPos;
-                return true; // Simplified for now, let's use Index logic + Distance calc
-            });
-
-            // Find step by checking distance to all upcoming step locations
+            // Find upcoming navigation step by finding the one closest to current position
+            // (the dead find() that always returned step[0] has been removed)
             let minStepDist = Infinity;
             let targetStep = navSteps[0];
 

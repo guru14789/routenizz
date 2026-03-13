@@ -36,3 +36,17 @@ __pycache__/
 
 # Data & Models
 ml_models/training_data.csv
+
+# Large analysis output images (generated artefacts)
+*.png
+!public/**/*.png
+
+# Reports / documents generated outside source control
+src/components/*.docx
+docs/*.docx
+
+# Capacitor Android build output (generated — do not track)
+android/
+
+# Capacitor config (auto-generated, environment-specific)
+# capacitor.config.json  ← keep this tracked so mobile builds work

@@ -3,11 +3,11 @@
  * SUPPORT: Implements a hybrid approach (Nearest Neighbor + 2-opt) for local optimization and acts as the client for the backend Enterprise VRP solver.
  */
 import { predictTravelTime } from './predictor.js';
-
 import { calculateFuel } from './fuelCalculator.js';
 import { calculateCost } from './costFunction.js';
 import { applyTwoOpt } from './localSearch.js';
 import { fetchTrafficMultiplier } from './trafficClient.js';
+import { API_ROUTES } from '../config.js';
 
 /**
  * HYBRID ROUTE OPTIMIZATION ARCHITECTURE
@@ -201,7 +201,7 @@ const DEFAULT_CONFIG = {
  */
 export const optimizeVRP = async (office, vehicles, stops) => {
     try {
-        const response = await fetch('http://localhost:8001/api/v1/logistics/optimize-route', {
+        const response = await fetch(API_ROUTES.optimizeRoute, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ office, vehicles, stops })

@@ -7,6 +7,7 @@
  * Street Routing Utility using OSRM (Open Source Routing Machine)
  * This turns straight lines into real street paths just like Google Maps.
  */
+import { API_ROUTES } from '../config.js';
 
 /**
  * Fetches street-level geometry for a sequence of stops.
@@ -146,7 +147,7 @@ export const fetchRouteMetadata = async (coordinates) => {
  */
 export const fetchOptimizedRoute = async (origin, destination) => {
     try {
-        const response = await fetch('http://localhost:8001/api/v1/navigation/recalculate', {
+        const response = await fetch(API_ROUTES.navRecalculate, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

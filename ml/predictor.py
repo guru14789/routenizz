@@ -25,34 +25,39 @@ class TrafficPredictor:  # Main class for traffic inference operations
         except Exception as e:
             logger.error(f"Failed to load traffic model: {e}")  # Log any deserialization or file access errors
 
-    def predict_multiplier(self, hour: int, day_of_week: int, is_holiday: bool = False):  # Core inference method
+    def predict_multiplier(self, hour: int, day_of_week: int, is_holiday: bool = False, region_id: int = 1):
         """
-        Predicts traffic multiplier based on time features.
+        Predicts traffic multiplier based on time and region features.
+
+        Args:
+            hour:        Hour of day (0-23)
+            day_of_week: Day of week (0=Monday … 6=Sunday)
+            is_holiday:  Whether the day is a public holiday
+            region_id:   Geographic region identifier (default 1 = Chennai metro)
         """
-        if self.model is None:  # If no model is loaded (e.g., first run or file missing)
-            return 1.1  # Return a safe fallback multiplier (10% overhead)
+        if self.model is None:  # Model not loaded — return safe overhead
+            return 1.1
 
         try:
-            # Step 1: Prepare the specific feature vector expected by the trained Random Forest
+            # Step 1: Build the feature vector in the exact shape the model expects
             features = pd.DataFrame([{
-                'hour': hour,  # Time of day (0-23)
-                'day_of_week': day_of_week,  # Day of week (0-6)
-                'is_holiday': int(is_holiday),  # Binary flag for holiday status (0 or 1)
-                'region_id': 1  # Standardized region identifier for this deployment
+                'hour': hour,
+                'day_of_week': day_of_week,
+                'is_holiday': int(is_holiday),
+                'region_id': region_id  # Now configurable — not hardcoded to 1
             }])
 
-            # Step 2: Ensure feature order matches the metadata definitions for consistency
+            # Step 2: Reorder columns to match training-time feature order
             features = features[TrafficModelMetadata.FEATURES]
 
-            # Step 3: Run the model inference
-            prediction = self.model.predict(features)[0]  # Get the first (and only) prediction value
-            
-            # Step 4: Apply safety clipping to avoid extreme mathematical anomalies
-            # Multiplier must be between 1.0 (free flow) and 3.0 (gridlock)
+            # Step 3: Run inference
+            prediction = self.model.predict(features)[0]
+
+            # Step 4: Clip to valid range [CLIP_MIN, CLIP_MAX]
             return float(max(TrafficModelMetadata.CLIP_MIN, min(prediction, TrafficModelMetadata.CLIP_MAX)))
-            
+
         except Exception as e:
-            logger.error(f"Traffic prediction error: {e}")  # Log any inference runtime errors
-            return 1.2  # Return a conservative fallback multiplier on error
+            logger.error(f"Traffic prediction error: {e}")
+            return 1.2  # Conservative fallback on any runtime error
 
 predictor = TrafficPredictor()  # Export a singleton instance for global use in routing calculations

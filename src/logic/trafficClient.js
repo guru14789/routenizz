@@ -3,8 +3,9 @@
  * 
  * Logic to communicate with the FastAPI traffic prediction server.
  */
+import { API_ROUTES } from '../config.js';
 
-const TRAFFIC_API_URL = 'http://127.0.0.1:8001/api/v1/traffic/predict';
+const TRAFFIC_API_URL = API_ROUTES.trafficPredict;
 const DEFAULT_FALLBACK_MULTIPLIER = 1.2;
 
 // Simple cache to avoid redundant API calls during 2-opt refinement

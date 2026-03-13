@@ -7,20 +7,21 @@ import OrderForm from './OrderForm'; // Import the order input component for add
 import RouteMap from './RouteMap'; // Import the Leaflet-based map for spatial visualization
 import PremiumStats from './PremiumStats'; // Import the KPI visualization strip
 
-const Dashboard = ({ // Functional component receiving the fleet orchestration props
-    orders, // Current list of all orders (Pending, Completed, etc.)
-    route, // The currently active optimized route sequence
-    setRoute, // Modifier for the route state
-    isCalculating, // Flag to indicate if a VRP run is in progress
-    onRecalculate, // Callback function to trigger the Cloud VRP solver
-    onAddOrder, // Callback to persist a new order to Firebase
-    onDeleteOrder, // Callback to remove an order from the database
-    onActiveOrdersClick, // Navigation hook for stats drill-down
-    onRouteStopsClick, // Navigation hook for stats drill-down
-    onCompletedOrdersClick, // Navigation hook for stats drill-down
-    drivers, // List of available fleet drivers
-    onToggleRole, // Switch to driver view for simulation
-    stats // High-level KPI data (fuel, carbon, cost)
+const Dashboard = ({
+    orders,
+    route,
+    setRoute,
+    isCalculating,
+    onRecalculate,
+    onAddOrder,
+    onDeleteOrder,
+    onActiveOrdersClick,
+    onRouteStopsClick,
+    onCompletedOrdersClick,
+    drivers,
+    onToggleRole,
+    stats,
+    gpsStatus  // Real GPS status threaded from App.js
 }) => {
     // Local state to manage the success notification after a dispatch action
     const [justDispatched, setJustDispatched] = useState(false);
@@ -87,8 +88,10 @@ const Dashboard = ({ // Functional component receiving the fleet orchestration p
                     <div className="pane-header">
                         <h3>Active Fleet Telemetry</h3> {/* Section title */}
                         <div className="telemetry-tags">
-                            <span className="tag">GPS: Active</span> {/* Mock status indicator */}
-                            <span className="tag">Network: Stable</span> {/* Mock status indicator */}
+                            <span className={`tag ${gpsStatus === 'Active' ? 'tag-ok' : 'tag-warn'}`}>
+                                GPS: {gpsStatus || 'Unknown'}
+                            </span>
+                            <span className="tag">Network: Stable</span>
                         </div>
                     </div>
                     <div className="map-container-inner">

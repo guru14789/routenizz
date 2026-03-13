@@ -1,57 +1,63 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area, ScatterChart, Scatter, LineChart, Line
 } from 'recharts';
 import './Analytics.css';
+import { API_ROUTES } from '../config.js';
 
-const featureImportance = [
-    { name: 'Hour of Day', value: 85, fill: '#6366f1' },
-    { name: 'Road Type', value: 72, fill: '#8b5cf6' },
-    { name: 'Distance', value: 45, fill: '#ec4899' },
-    { name: 'Speed History', value: 38, fill: '#f43f5e' },
-    { name: 'Day of Week', value: 25, fill: '#f59e0b' },
-];
-
-const trafficTrendData = [
-    { hour: '00:00', multiplier: 1.05 },
-    { hour: '02:00', multiplier: 1.02 },
-    { hour: '04:00', multiplier: 1.00 },
-    { hour: '06:00', multiplier: 1.15 },
-    { hour: '08:00', multiplier: 1.85 },
-    { hour: '10:00', multiplier: 1.65 },
-    { hour: '12:00', multiplier: 1.45 },
-    { hour: '14:00', multiplier: 1.55 },
-    { hour: '16:00', multiplier: 1.75 },
-    { hour: '18:00', multiplier: 2.10 },
-    { hour: '20:00', multiplier: 1.40 },
-    { hour: '22:00', multiplier: 1.25 },
-];
-
-const performanceData = Array.from({ length: 50 }, (_, i) => ({
-    actual: 1 + Math.random() * 1.5,
-    predicted: 1 + Math.random() * 1.5,
-    error: Math.random() * 0.1
-})).map(p => ({ ...p, predicted: p.actual + (Math.random() - 0.5) * 0.3 }));
-
-const modelAccuracyTrend = [
-    { day: 'Mon', accuracy: 92 },
-    { day: 'Tue', accuracy: 94 },
-    { day: 'Wed', accuracy: 93 },
-    { day: 'Thu', accuracy: 95 },
-    { day: 'Fri', accuracy: 94 },
-    { day: 'Sat', accuracy: 96 },
-    { day: 'Sun', accuracy: 97 },
-];
+const API_BASE_URL = API_ROUTES.analytics;
 
 const Analytics = () => {
+    const [featureImportance, setFeatureImportance] = useState([]);
+    const [trafficTrendData, setTrafficTrendData] = useState([]);
+    const [performanceData, setPerformanceData] = useState([]);
+    const [modelAccuracyTrend, setModelAccuracyTrend] = useState([]);
+    const [engineStatus, setEngineStatus] = useState({ model_version: 'Loading...', status: 'Initializing', r2_score: 0 });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAnalyticsData = async () => {
+            try {
+                const [features, trend, scatter, accuracy, status] = await Promise.all([
+                    fetch(`${API_BASE_URL}/feature-importance`).then(res => res.json()),
+                    fetch(`${API_BASE_URL}/traffic-trend`).then(res => res.json()),
+                    fetch(`${API_BASE_URL}/performance-scatter`).then(res => res.json()),
+                    fetch(`${API_BASE_URL}/accuracy-trend`).then(res => res.json()),
+                    fetch(`${API_BASE_URL}/engine-status`).then(res => res.json())
+                ]);
+
+                setFeatureImportance(features);
+                setTrafficTrendData(trend);
+                setPerformanceData(scatter);
+                setModelAccuracyTrend(accuracy);
+                setEngineStatus(status);
+                setLoading(false);
+            } catch (error) {
+                console.error("Failed to fetch real-time analytics:", error);
+                setLoading(false);
+            }
+        };
+
+        fetchAnalyticsData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="analytics-container loading">
+                <div className="loader-spinner"></div>
+                <p>Synchronizing Predictive Intelligence...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="analytics-container">
             <header className="analytics-header">
                 <h2>Predictive Engine Intelligence</h2>
                 <div className="model-status-badge">
-                    <span className="dot pulse"></span>
-                    Model: RF-Traffic-v2.1 (Active)
+                    <span className={`dot ${engineStatus.status === 'Active' ? 'pulse' : ''}`}></span>
+                    Model: {engineStatus.model_version} ({engineStatus.status})
                 </div>
             </header>
 
@@ -93,7 +99,7 @@ const Analytics = () => {
                                     </linearGradient>
                                 </defs>
                                 <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} domain={[1.0, 2.5]} />
+                                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} domain={[1.0, 'auto']} />
                                 <Tooltip
                                     contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
                                 />
@@ -107,7 +113,7 @@ const Analytics = () => {
                 <div className="analytics-card">
                     <div className="card-info">
                         <h3>Actual vs. Predicted Multiplier</h3>
-                        <p>Model R²: 0.94. Dispersion represents unexpected volatility in road segments.</p>
+                        <p>Model R²: {engineStatus.r2_score}. Dispersion represents unexpected volatility in road segments.</p>
                     </div>
                     <div className="chart-wrapper">
                         <ResponsiveContainer width="100%" height={250}>
@@ -131,7 +137,7 @@ const Analytics = () => {
                         <ResponsiveContainer width="100%" height={250}>
                             <LineChart data={modelAccuracyTrend}>
                                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                                <YAxis domain={[90, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                                <YAxis domain={[85, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                                 <Tooltip
                                     contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
                                 />

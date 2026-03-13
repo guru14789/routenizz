@@ -98,21 +98,43 @@ const DriverView = ({
     const [isPanelExpanded, setIsPanelExpanded] = useState(true);
     const [navStep, setNavStep] = useState({ instruction: '', distance: 0 });
 
-    // Derive current stop index from completed orders in the filtered route
-    const currentStopIndex = route.findIndex(o => o.status === 'Pending');
-    const effectiveIndex = currentStopIndex === -1 ? route.length : currentStopIndex;
+    // Derive current stop index from completed orders in the filtered route.
+    // Filter out HQ synthetic depot stops (HQ-START-*, HQ-RETURN-*) — drivers only see real deliveries.
+    const deliveryRoute = useMemo(
+        () => route.filter(o => !String(o.id).startsWith('HQ')),
+        [route]
+    );
 
-    const currentStop = route[effectiveIndex];
-    const nextStop = route[effectiveIndex + 1];
-    const isFinished = route.length > 0 && effectiveIndex >= route.length;
-    const progress = route.length > 0 ? Math.round((effectiveIndex / route.length) * 100) : 0;
+    const currentStopIndex = deliveryRoute.findIndex(o => o.status === 'Pending');
+    const effectiveIndex = currentStopIndex === -1 ? deliveryRoute.length : currentStopIndex;
 
-    const handleReportDelay = () => {
+    const currentStop = deliveryRoute[effectiveIndex];
+    const nextStop = deliveryRoute[effectiveIndex + 1];
+    const isFinished = deliveryRoute.length > 0 && effectiveIndex >= deliveryRoute.length;
+    const progress = deliveryRoute.length > 0 ? Math.round((effectiveIndex / deliveryRoute.length) * 100) : 0;
+
+    // Fuel: derive from route completion ratio (starts 100%, depletes to ~10% by end of route)
+    const completedCount = deliveryRoute.filter(o => o.status === 'Completed').length;
+    const fuelPercent = deliveryRoute.length > 0
+        ? Math.max(10, Math.round(100 - (completedCount / deliveryRoute.length) * 90))
+        : 100;
+
+    // ETA: compute from current stop's cumulative travel time (minutes from route start)
+    const etaDisplay = useMemo(() => {
+        if (!currentStop?.arrivalTime) return '—';
+        return new Date(Date.now() + currentStop.arrivalTime * 60000)
+            .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, [currentStop?.id, currentStop?.arrivalTime]);
+
+    const handleReportDelay = async () => {
         setIsLoading(true);
         setDelayMinutes(prev => prev + 10);
         setRouteStatus('Delayed');
-        recalculateRoute();
-        setTimeout(() => setIsLoading(false), 2000);
+        try {
+            await recalculateRoute(); // Wait for real optimization to finish
+        } finally {
+            setIsLoading(false); // Always clears regardless of success or error
+        }
     };
 
     const handleComplete = () => {
@@ -122,18 +144,24 @@ const DriverView = ({
         }
     };
 
+    // Stable memo: derives map coordinates from route.
+    // Separates the JSON.stringify cost into its own memo so it doesn't re-run the expensive computation.
+    const routeKey = useMemo(
+        () => route.map(s => `${s.lat},${s.lng}`).join('|'),
+        [route]
+    );
+    const snappedLat = liveLocation ? Math.round(liveLocation.lat * 10000) : null;
+    const snappedLng = liveLocation ? Math.round(liveLocation.lng * 10000) : null;
+
     const extractedRouteCoordinates = useMemo(() => {
         const coords = route.map(stop => [stop.lat, stop.lng]);
-        if (liveLocation) {
-            // Snap to 4 decimal places (~11m) to avoid jitter-induced OSRM refetching
-            const snappedLat = Math.round(liveLocation.lat * 10000) / 10000;
-            const snappedLng = Math.round(liveLocation.lng * 10000) / 10000;
-            return [[snappedLat, snappedLng], ...coords];
+        if (liveLocation && snappedLat !== null) {
+            return [[snappedLat / 10000, snappedLng / 10000], ...coords];
         }
         return coords;
-    }, [JSON.stringify(route), Math.round(liveLocation?.lat * 10000), Math.round(liveLocation?.lng * 10000)]);
+    }, [routeKey, snappedLat, snappedLng]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (route.length === 0) {
+    if (deliveryRoute.length === 0) {
         return (
             <div className="driver-redesigned-screen empty">
                 <div className="empty-command-center">
@@ -179,7 +207,7 @@ const DriverView = ({
                 </div>
                 <div className="system-stats">
                     <div className="stat-pill"><DriverIcons.Connectivity /> 5G</div>
-                    <div className="stat-pill fuel"><DriverIcons.Fuel /> {fuel}%</div>
+                    <div className="stat-pill fuel"><DriverIcons.Fuel /> {fuelPercent}%</div>
                 </div>
             </div>
 
@@ -227,7 +255,7 @@ const DriverView = ({
                         <div className="drag-pill"></div>
                     </div>
                     <div className="ops-header">
-                        <div className="stop-badge">STOP {currentStopIndex + 1} / {route.length}</div>
+                        <div className="stop-badge">STOP {effectiveIndex + 1} / {deliveryRoute.length}</div>
                         <div className="progress-mini">
                             <div className="bar" style={{ width: `${progress}%` }}></div>
                         </div>
@@ -247,11 +275,11 @@ const DriverView = ({
                         <div className="ops-stats-row">
                             <div className="mini-stat">
                                 <label>ETA</label>
-                                <span>12:45 <small>PM</small></span>
+                                <span>{etaDisplay}</span>
                             </div>
                             <div className="mini-stat">
                                 <label>REMAINING</label>
-                                <span>{route.length - currentStopIndex} Stops</span>
+                                <span>{deliveryRoute.length - effectiveIndex} Stops</span>
                             </div>
                             <div className="mini-stat">
                                 <label>DELAY</label>
