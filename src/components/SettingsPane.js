@@ -172,8 +172,5 @@ const SettingsPane = () => {
         </div>
     );
 };
-        </div>
-    );
-};
 
 export default SettingsPane;
