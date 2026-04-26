@@ -256,5 +256,3 @@ const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAd
 };
 
 export default AdminPage;
-
-export default AdminPage;
