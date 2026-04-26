@@ -291,9 +291,6 @@ const OrderForm = ({ onAddOrder, drivers = [] }) => {
         </form>
     );
 };
-        </form>
-    );
-};
 
 const DraggableMarker = ({ position, onMove }) => {
     const markerRef = React.useRef(null);
