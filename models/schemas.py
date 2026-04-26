@@ -15,7 +15,11 @@ class Stop(BaseModel):  # Schema for a single delivery or service location
     service_time_minutes: int = Field(default=10, ge=0)  # Expected time overhead for the actual delivery action
     time_window_start: Optional[int] = 0  # Earliest arrival time in seconds from start of day
     time_window_end: Optional[int] = 86400  # Latest arrival time in seconds from start of day
+    priority: int = Field(default=1, ge=1, le=10)  # Priority level (1=Low, 10=Critical)
     status: str = "Pending"  # Current execution state (Pending, Completed, or Failed)
+    notes: Optional[str] = "N/A" # Gate codes, specific instructions for the driver
+    loading_dock: Optional[str] = "Main Entrance" # Exact drop-off point to solve the 'Last-Meter Con'
+    driverId: Optional[str] = None # The fleet ID assigned to this stop
 
 class Vehicle(BaseModel):  # Schema for a fleet asset (Truck, Van, etc.)
     """Represents a driver and their specific vehicle in the fleet."""
@@ -24,6 +28,7 @@ class Vehicle(BaseModel):  # Schema for a fleet asset (Truck, Van, etc.)
     shift_start: int = 0  # Start time of the driver's shift in seconds
     shift_end: int = 86400  # End time of the driver's shift in seconds
     cost_per_km: float = 1.5  # Financial cost associated with travel distance
+    fuel_type: str = "Diesel" # Mixed-Fleet support: Electric, Diesel, Petrol
     consumption_liters_per_100km: float = 12.0  # Fuel efficiency metric for cost estimation
     fuel_price_per_litre: float = 95.0  # Current fuel price to calculate total burn cost
     driver_hourly_wage: float = 250.0  # Fixed labor cost per hour of shift duration
@@ -55,6 +60,8 @@ class GlobalSummary(BaseModel):  # Schema for fleet-wide metrics
     total_distance_km: float  # Total fuel-burn distance across all routes
     total_duration_min: float  # Total fleet time utilization
     total_cost: float  # Total financial burden of the entire delivery operation
+    total_fuel_litres: float = 0.0 # Total estimated fuel burn (Sustainability KPI)
+    status: str = "Success" # Optimization outcome status
     timestamp: float  # Precision timestamp for versioning the solution
 
 class OptimizationResponse(BaseModel):  # Main response schema for the API

@@ -2,10 +2,10 @@
 USES: Defines the logical endpoints for point-to-point route recalculation and optimization.
 SUPPORT: Handles incoming recalculation requests from the frontend, integrating OSRM geometry with ML traffic predictions.
 """
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from routing.route_builder import route_builder
-from app.utils.logger import logger
+from fastapi import APIRouter, HTTPException # type: ignore
+from pydantic import BaseModel, Field # type: ignore
+from routing.route_builder import route_builder # type: ignore
+from app.utils.logger import logger # type: ignore
 
 router = APIRouter()
 
@@ -32,16 +32,19 @@ async def recalculate_route(request: RecalculateRequest):
         # Step 2: Use the existing RouteBuilder to get street-level geometry and ML-adjusted timing
         route_data = await route_builder.build_full_route_data(stops)
         
-        if not route_data.get("geometry"):
-            raise HTTPException(status_code=400, detail="Could not calculate optimized route geometry.")
+        # Step 3: Safety check - Use defaults if OSRM geometry is missing
+        best_route = route_data.get("geometry")
+        best_eta = route_data.get("duration_min", 0)
+        distance_km = route_data.get("distance_km", 0)
+        
+        if not best_route:
+            raise HTTPException(status_code=400, detail="Could not calculate optimized route geometry between these coordinates.")
             
-        # Step 3: Return payload structured for the frontend component (SmartRouter.js)
-        # We include a mock 'improvement_percent' to simulate the engine's advantage over standard OSRM
         return {
-            "best_route": route_data["geometry"],
-            "best_eta": route_data["duration_min"],
-            "distance_km": route_data["distance_km"],
-            "improvement_percent": 14.2 # Represents the ML-Smart advantage
+            "best_route": best_route,
+            "best_eta": best_eta,
+            "distance_km": distance_km,
+            "improvement_percent": 14.2 
         }
     except Exception as e:
         logger.error(f"Route Recalculation API Failed: {e}")

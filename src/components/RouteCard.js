@@ -1,4 +1,5 @@
 import React from 'react';
+import { getFleetColor } from '../utils/colors';
 
 const RouteCard = ({ order, index, onDelete }) => {
     const priorityColors = {
@@ -9,7 +10,7 @@ const RouteCard = ({ order, index, onDelete }) => {
 
     return (
         <div className="route-card">
-            <div className="card-index-box">
+            <div className="card-index-box" style={{ backgroundColor: getFleetColor(order.driverId) }}>
                 <span className="index-num">{index + 1}</span>
             </div>
             <div className="card-content">
@@ -37,7 +38,19 @@ const RouteCard = ({ order, index, onDelete }) => {
                         {order.priority}
                     </span>
                     <span className="weight-badge">{order.weight} kg</span>
-                    {order.driverId && <span className="fleet-badge">Fleet: {order.driverId}</span>}
+                    {order.driverId && (
+                        <span
+                            className="fleet-badge"
+                            style={{
+                                backgroundColor: 'transparent',
+                                border: `1px solid ${getFleetColor(order.driverId)}`,
+                                color: getFleetColor(order.driverId),
+                                fontWeight: '700'
+                            }}
+                        >
+                            Fleet: {order.driverId}
+                        </span>
+                    )}
                 </div>
             </div>
         </div>

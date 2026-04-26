@@ -110,6 +110,23 @@ curl http://127.0.0.1:8001/api/v1/analytics/traffic-heatmap?hour=17
 
 ---
 
+## 🔒 Production Security & Persistence
+The system now includes an authentication layer and persistent telemetry:
+
+**1. Authentication:**
+- **Endpoint**: `/api/v1/auth/login`
+- **Method**: POST (Form Data: `username`, `password`)
+- **Default**: `admin / admin123`
+- **JWT Protection**: The `/api/v1/logistics/optimize-route` endpoint now requires an `Authorization: Bearer <token>` header.
+
+**2. Persistent Telemetry (Redis):**
+- Vehicle positions are now cached in **Redis** with a 24-hour TTL, ensuring live tracking survives server restarts.
+
+**3. Database Persistence:**
+- Logistics metadata (orders, vehicle types) are now stored in an asynchronous SQLite database (`tn_logistics.db`).
+
+---
+
 ## 🚀 Key Features
 
 * **High Concurrency Optimization:** GZip compression, Redis 30-second TTL caching, and `slowapi` rate-limiting support 10,000+ concurrent ETA queries.

@@ -1,0 +1,134 @@
+/*
+ * USES: Styles for the live System Health monitor widget.
+ * SUPPORT: Shown in the Dashboard below the map; renders dependency status for ML, OSRM, Redis, DB.
+ */
+
+/* ── Container ── */
+.sys-health-widget {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Header Row ── */
+.sh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.sh-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sh-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+/* ── Overall Status Badge ── */
+.sh-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.sh-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  animation: sh-pulse 2s ease-in-out infinite;
+}
+
+@keyframes sh-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ── Refresh Button ── */
+.sh-refresh {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  border-radius: 0.4rem;
+  transition: color 0.2s;
+}
+.sh-refresh:hover { color: #9ca3af; }
+.sh-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@keyframes sh-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Dependency Rows ── */
+.sh-deps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sh-dep-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.sh-dep-row:last-child { border-bottom: none; }
+
+.sh-dep-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.sh-dep-name {
+  flex: 1;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.sh-dep-val {
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Footer ── */
+.sh-footer {
+  margin-top: 0.6rem;
+  font-size: 0.65rem;
+  color: #4b5563;
+  display: flex;
+  justify-content: space-between;
+}
+
+.sh-ver {
+  color: #374151;
+}

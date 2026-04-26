@@ -1,36 +1,55 @@
-"""
-USES: Duration matrix constructor for VRP.
-SUPPORT: Interfaces with OSRM to generate an NxN matrix of travel times between all geographic points, serving as the foundational cost data for the VRPSolver.
-"""
-import httpx  # Import HTTP client for asynchronous web requests to mapping servers
-from app.config import config  # Import configuration to retrieve the OSRM base URL
-from app.utils.logger import logger  # Import logging to track external API performance and failures
+import httpx
+import hashlib
+import json
+import redis.asyncio as redis
+from app.config import config
+from app.utils.logger import logger
 
-class MatrixBuilder:  # Service class to handle matrix generation tasks
-    def __init__(self):  # constructor for MatrixBuilder
-        self.base_url = f"{config.OSRM_URL}/table/v1/driving"  # Define the OSRM 'table' service endpoint
+class MatrixBuilder:
+    def __init__(self):
+        self.base_url = f"{config.OSRM_URL}/table/v1/driving"
+        self.redis = redis.from_url(config.REDIS_URL, decode_responses=True)
 
-    async def get_duration_matrix(self, coordinates: list):  # Main method to fetch NxN durations
+    async def get_duration_matrix(self, coordinates: list):
         """
-        Fetches an NxN duration matrix (in seconds) from OSRM Table API.
+        Fetches an NxN duration matrix from OSRM, with Redis caching for performance.
         """
-        # Step 1: Format the coordinate pairs into the specific string format required by OSRM
-        # Format: lng1,lat1;lng2,lat2;...
-        coord_string = ";".join([f"{c[1]},{c[0]}" for c in coordinates])  # Convert [lat, lng] to "lng,lat"
-        url = f"{self.base_url}/{coord_string}?annotations=duration"  # Construct final OSRM request URL
+        coord_string = ";".join([f"{c[1]},{c[0]}" for c in coordinates])
+        
+        # Performance Optimization: Redis Cache Check
+        cache_key = f"matrix:{hashlib.md5(coord_string.encode()).hexdigest()}"
+        try:
+            cached_data = await self.redis.get(cache_key)
+            if cached_data:
+                logger.info(f"Matrix Cache Hit: {cache_key}")
+                return json.loads(cached_data)
+        except Exception as re:
+            logger.warning(f"Redis Cache inaccessible: {re}")
+
+        url = f"{self.base_url}/{coord_string}?annotations=duration"
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:  # Open an async HTTP session with a 10s timeout
-                response = await client.get(url)  # Send the GET request to the OSRM server
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url)
                 
-                if response.status_code != 200:  # Check if the mapping server responded with an error
-                    logger.error(f"OSRM Error: {response.text}")  # Log the error details for ops review
-                    return None  # Return None to trigger fallback logic in the solver
+                if response.status_code != 200:
+                    logger.error(f"OSRM Error: {response.text}")
+                    return None
 
-                data = response.json()  # Parse the JSON response body
-                return data.get("durations")  # Return the list-of-lists duration matrix
+                data = response.json()
+                durations = data.get("durations")
+                
+                # Update Cache for future requests (Expire in 24 hours)
+                if durations:
+                    try:
+                        await self.redis.setex(cache_key, 86400, json.dumps(durations))
+                    except Exception as re:
+                        logger.warning(f"Failed to update cache: {re}")
+                        
+                return durations
         except Exception as e:
-            logger.error(f"Matrix build exception: {e}")  # Catch network timeouts or connection resets
-            return None  # Return None to signal a failure in the data pipeline
+            logger.error(f"Matrix build exception for {len(coordinates)} nodes: {e}")
+            return None
 
-matrix_builder = MatrixBuilder()  # Export a singleton for app-wide use
+matrix_builder = MatrixBuilder()
+  # Export a singleton for app-wide use

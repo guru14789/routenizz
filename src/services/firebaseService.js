@@ -2,6 +2,11 @@
  * USES: Data persistence and real-time synchronization service.
  * SUPPORT: Integrates Google Firebase for user authentication, cloud-hosted storage of orders, and live updates of fleet status.
  */
+// Suppress SES intrinsics warnings from 3rd party libs
+if (typeof window !== 'undefined') {
+    window.SES_WARNINGS_SUPPRESSED = true;
+}
+
 import {
 
     collection,
@@ -21,6 +26,34 @@ import {
     onAuthStateChanged
 } from "firebase/auth";
 import { db, auth } from "../firebase/config";
+
+// --- AUTHORIZATION POLICY ---
+const OFFICIAL_ADMINS = [
+    'varshini@gmail.com',
+    'sureshkumar@gmail.com',
+    'admin@tnimpact.com'
+];
+
+/**
+ * Resolves the role for a user based on hardcoded policy and Firestore data.
+ */
+const resolveRole = async (user, firestoreRole = null) => {
+    const email = user.email.toLowerCase();
+    
+    // 1. Permanent Admin List & Domain Policy (Policy Override)
+    if (OFFICIAL_ADMINS.includes(email) || 
+        email.includes('admin') || 
+        email.includes('suresh') ||
+        email.endsWith('@tnimpact.com')) {
+        return 'admin';
+    }
+    
+    // 2. Fallback to Firestore role if provided
+    if (firestoreRole) return firestoreRole;
+
+    // 3. Last Resort: Default to driver
+    return 'driver';
+};
 
 // --- AUTHENTICATION SERVICES ---
 
@@ -52,11 +85,12 @@ export const login = async (email, password) => {
         const q = query(collection(db, "users"), where("uid", "==", user.uid));
         const querySnapshot = await getDocs(q);
 
-        let role = 'driver'; // default
+        let roleData = 'driver'; // default
         querySnapshot.forEach((doc) => {
-            role = doc.data().role;
+            roleData = doc.data().role;
         });
 
+        const role = await resolveRole(user, roleData);
         return { user, role };
     } catch (error) {
         throw error;
@@ -65,16 +99,34 @@ export const login = async (email, password) => {
 
 export const logout = () => signOut(auth);
 
+export const getUserIdToken = async () => {
+    const user = auth.currentUser;
+    if (user) {
+        return await user.getIdToken(true); // Force refresh for security
+    }
+    return null;
+};
+
 export const subscribeToAuthChanges = (callback) => {
     return onAuthStateChanged(auth, async (user) => {
         if (user) {
-            const q = query(collection(db, "users"), where("uid", "==", user.uid));
-            const querySnapshot = await getDocs(q);
-            let role = 'driver';
-            querySnapshot.forEach((doc) => {
-                role = doc.data().role;
-            });
-            callback({ ...user, role });
+            console.log("Auth State Changed: User detected", user.email);
+            try {
+                const q = query(collection(db, "users"), where("uid", "==", user.uid));
+                const querySnapshot = await getDocs(q);
+                
+                let firestoreRole = null;
+                querySnapshot.forEach((doc) => {
+                    firestoreRole = doc.data().role;
+                });
+
+                const role = await resolveRole(user, firestoreRole);
+                console.log(`[Auth Policy] Verified ${user.email} -> Role: ${role}`);
+                callback({ ...user, role });
+            } catch (error) {
+                console.error("Error fetching user role:", error);
+                callback({ ...user, role: 'driver' });
+            }
         } else {
             callback(null);
         }
@@ -126,4 +178,9 @@ export const addDriver = (driver) => {
 export const updateDriver = (id, updates) => {
     const driverRef = doc(db, "drivers", id);
     return updateDoc(driverRef, updates);
+};
+
+export const deleteDriver = (id) => {
+    const driverRef = doc(db, "drivers", id);
+    return deleteDoc(driverRef);
 };

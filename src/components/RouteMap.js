@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { fetchStreetRoute } from '../logic/streetRouting';
+import { getFleetColor } from '../utils/colors';
 import './RouteMap.css';
 
 // Helper component to handle map movement without re-mounting the whole MapContainer
@@ -34,16 +35,18 @@ const MapController = ({ coords }) => {
     return null;
 };
 
-const createAddressLabelIcon = (number, label, isSpecial = false) => new L.DivIcon({
+const createAddressLabelIcon = (number, label, isSpecial = false, color = '#000') => new L.DivIcon({
     className: 'address-label-marker',
     html: `
-        <div class="map-label-wrapper ${isSpecial ? 'special-label' : ''}">
-            <span class="label-number">${number}</span>
-            <span class="label-text">${label}</span>
+        <div class="map-label-wrapper ${isSpecial ? 'special-label' : ''}" style="border-left: 5px solid ${color}">
+            <div class="label-badge" style="background-color: ${color}">#${number}</div>
+            <div class="label-info">
+                <span class="label-text">${label}</span>
+            </div>
         </div>
     `,
-    iconSize: [120, 35],
-    iconAnchor: [60, 35]
+    iconSize: [160, 45],
+    iconAnchor: [80, 51] // 45px container + 6px downward offset for the pointer arrow tip
 });
 
 const RouteMap = ({ stops = [], unassignedOrders = [] }) => {
@@ -62,25 +65,10 @@ const RouteMap = ({ stops = [], unassignedOrders = [] }) => {
     const allCoords = [...validCoords, ...extraPins.map(p => [p.lat, p.lng])];
 
     const [fleetPaths, setFleetPaths] = React.useState({});
+    const [previewPath, setPreviewPath] = React.useState([]);
 
-    const getFleetColor = (driverId) => {
-        if (!driverId || driverId === 'unassigned') return '#667085'; // Default gray for unassigned
-        // Distinct, vibrant colors for the active fleet
-        const colors = [
-            '#2e90fa', // Azure Blue
-            '#f79009', // Deep Orange
-            '#12b76a', // Emerald Green
-            '#ee46bc', // Hot Pink
-            '#7a5af8', // Royal Purple
-            '#f04438', // Scarlet Red
-            '#00d5ff', // Cyber Cyan
-            '#9b2c2c', // Maroon
-            '#4a5568'  // Charcoal
-        ];
-        const hash = String(driverId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return colors[hash % colors.length];
-    };
 
+    // Fetch optimized street paths for each driver group
     React.useEffect(() => {
         if (validStops.length === 0) {
             setFleetPaths({});
@@ -109,6 +97,28 @@ const RouteMap = ({ stops = [], unassignedOrders = [] }) => {
         fetchPaths();
     }, [JSON.stringify(validStops)]);
 
+    // When no optimized route exists yet, fetch a preview street path through all visible order pins
+    React.useEffect(() => {
+        if (validStops.length > 0) {
+            // Optimized route takes priority — clear preview immediately to avoid 'blue flicker'
+            if (previewPath.length > 0) setPreviewPath([]);
+            return;
+        }
+        const allPins = (unassignedOrders || []).filter(
+            o => o && typeof o.lat === 'number' && typeof o.lng === 'number'
+        );
+        if (allPins.length < 2) {
+            setPreviewPath([]);
+            return;
+        }
+        const fetchPreview = async () => {
+            const coords = allPins.map(o => [o.lat, o.lng]);
+            const result = await fetchStreetRoute(coords);
+            setPreviewPath(result.path || coords);
+        };
+        fetchPreview();
+    }, [JSON.stringify(validStops), JSON.stringify(unassignedOrders)]);
+
     if (validStops.length === 0 && extraPins.length === 0) {
         return <div className="route-map-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Valid Route Data Available</div>;
     }
@@ -136,17 +146,34 @@ const RouteMap = ({ stops = [], unassignedOrders = [] }) => {
                     opacity={0.6}
                 />
 
+                {/* Preview dashed route: shown before optimization runs (when route[] is empty) */}
+                {previewPath.length >= 2 && (
+                    <Polyline
+                        key="preview-path"
+                        positions={previewPath}
+                        pathOptions={{
+                            color: '#00f2fe', // Electric Cyan (No Grey)
+                            weight: 4,
+                            opacity: 0.6,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                            dashArray: '10, 10'
+                        }}
+                    />
+                )}
+
+                {/* Optimized fleet routes: solid colored lines per driver */}
                 {Object.entries(fleetPaths).map(([fid, path]) => (
                     <Polyline
                         key={`path-${fid}`}
                         positions={path}
                         pathOptions={{
                             color: getFleetColor(fid),
-                            weight: 5,
-                            opacity: 0.8,
+                            weight: 7, // Thicker lines for better visibility
+                            opacity: 0.9,
                             lineCap: 'round',
                             lineJoin: 'round',
-                            dashArray: fid === 'unassigned' ? '10, 10' : null
+                            dashArray: fid === 'unassigned' ? '12, 12' : null
                         }}
                     />
                 ))}
@@ -171,17 +198,36 @@ const RouteMap = ({ stops = [], unassignedOrders = [] }) => {
                 ))}
 
                 {/* Draw custom address labels for route stops */}
-                {validStops.map((stop, index) => (
-                    <Marker
-                        key={`${stop.id}-${index}`}
-                        position={[stop.lat, stop.lng]}
-                        icon={createAddressLabelIcon(
-                            index + 1,
-                            stop.customer || `Stop ${index + 1}`,
-                            index === 0 || index === validStops.length - 1
-                        )}
-                    />
-                ))}
+                {(() => {
+                    const counters = {}; // Local counters per fleet
+                    return validStops.map((stop, index) => {
+                        const fid = stop.driverId || 'unassigned';
+                        if (!counters[fid]) counters[fid] = 0;
+                        counters[fid]++;
+
+                        const fleetColor = getFleetColor(fid);
+                        const labelNumber = counters[fid];
+
+                        // Premium Labeling: Fleet ID + Customer Name
+                        const stopLabel = stop.customer || stop.name || `Point ${labelNumber}`;
+                        const displayText = fid !== 'unassigned' ? `[${fid}] ${stopLabel}` : stopLabel;
+
+                        const isDepot = index === 0 || stop.status === 'Depot' || String(stop.id).startsWith('HQ');
+
+                        return (
+                            <Marker
+                                key={`${stop.id}-${index}`}
+                                position={[stop.lat, stop.lng]}
+                                icon={createAddressLabelIcon(
+                                    labelNumber,
+                                    displayText,
+                                    isDepot,
+                                    fleetColor
+                                )}
+                            />
+                        );
+                    });
+                })()}
             </MapContainer>
         </div>
     );

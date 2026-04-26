@@ -53,3 +53,7 @@ android/
 
 # Capacitor config (auto-generated, environment-specific)
 # capacitor.config.json  ← keep this tracked so mobile builds work
+
+# Databases
+*.db
+tn_logistics.db

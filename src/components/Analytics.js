@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import './Analytics.css';
 import { API_ROUTES } from '../config.js';
+import { getAuthHeaders } from '../services/backendAuthService';
 
 const API_BASE_URL = API_ROUTES.analytics;
 
@@ -15,26 +16,41 @@ const Analytics = () => {
     const [modelAccuracyTrend, setModelAccuracyTrend] = useState([]);
     const [engineStatus, setEngineStatus] = useState({ model_version: 'Loading...', status: 'Initializing', r2_score: 0 });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchAnalyticsData = async () => {
             try {
-                const [features, trend, scatter, accuracy, status] = await Promise.all([
-                    fetch(`${API_BASE_URL}/feature-importance`).then(res => res.json()),
-                    fetch(`${API_BASE_URL}/traffic-trend`).then(res => res.json()),
-                    fetch(`${API_BASE_URL}/performance-scatter`).then(res => res.json()),
-                    fetch(`${API_BASE_URL}/accuracy-trend`).then(res => res.json()),
-                    fetch(`${API_BASE_URL}/engine-status`).then(res => res.json())
-                ]);
+                const endpoints = [
+                    '/feature-importance',
+                    '/traffic-trend',
+                    '/performance-scatter',
+                    '/accuracy-trend',
+                    '/engine-status'
+                ];
+
+                const authHeaders = getAuthHeaders();
+                const results = await Promise.all(endpoints.map(async (ep) => {
+                    const res = await fetch(`${API_BASE_URL}${ep}`, { headers: authHeaders });
+                    if (!res.ok) {
+                        if (res.status === 401) throw new Error("Unauthorized: Backend access denied.");
+                        if (res.status === 403) throw new Error("Forbidden: Admin privileges required.");
+                        throw new Error(`Failed to fetch ${ep} (Status: ${res.status})`);
+                    }
+                    return res.json();
+                }));
+
+                const [features, trend, scatter, accuracy, status] = results;
 
                 setFeatureImportance(features);
                 setTrafficTrendData(trend);
                 setPerformanceData(scatter);
                 setModelAccuracyTrend(accuracy);
                 setEngineStatus(status);
-                setLoading(false);
-            } catch (error) {
-                console.error("Failed to fetch real-time analytics:", error);
+            } catch (err) {
+                console.error("Failed to fetch real-time analytics:", err);
+                setError(err.message);
+            } finally {
                 setLoading(false);
             }
         };
@@ -47,6 +63,22 @@ const Analytics = () => {
             <div className="analytics-container loading">
                 <div className="loader-spinner"></div>
                 <p>Synchronizing Predictive Intelligence...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="analytics-container error" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
+                <div className="error-icon" style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+                <h3 style={{ color: '#f8fafc' }}>Synchronization Halted</h3>
+                <p style={{ maxWidth: '400px', textAlign: 'center', marginBottom: '1.5rem' }}>{error}</p>
+                <button 
+                    onClick={() => window.location.reload()} 
+                    style={{ padding: '0.75rem 1.5rem', background: '#6366f1', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer' }}
+                >
+                    Retry Connection
+                </button>
             </div>
         );
     }

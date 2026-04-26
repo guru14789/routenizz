@@ -3,87 +3,134 @@
  * SUPPORT: Manages global application state (user auth, orders, routes), initializes live GPS tracking, and handles top-level navigation between Admin and Driver views.
  */
 import React, { useState, useEffect } from 'react'; // React core for component lifecycle and state
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom'; // SPA routing utilities
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'; // SPA routing utilities
 import DriverView from './components/DriverView'; // Main interface for the delivery driver
 import LoginPage from './pages/LoginPage'; // User authentication (Admin/Driver) landing
 import AdminPage from './pages/AdminPage'; // Global fleet management and routing dashboard
-import { mockOrders } from './data/mockOrders'; // Fallback static data for development/demo
-import { initializeDefaultStorage } from "./utils/storage"; // Helper to ensure LocalStorage structure
-import { optimizeRoute, optimizeWithPersistentHistory, optimizeVRP } from './logic/optimizer'; // Optimization algorithm controllers
-import { calculateFuelConsumption, calculateCarbonFootprint } from './logic/fuelCalculator'; // Eco-logic for stats
-import { saveToStorage, getFromStorage } from './utils/storage'; // Persistence utility for browser reloads
-import { getCurrentTrafficZone, getTrafficMultiplier } from "./data/trafficData"; // Local traffic simulation data
-import './index.css'; // Main application styling entry point
+import { mockOrders } from './data/mockOrders';
+import './index.css'; 
 
 // Protected Route Component Definition
 // Ensures only authenticated users can access specific sections based on their assigned role
-const ProtectedRoute = ({ children, allowedRole, user, overrideRole }) => {
-    if (!user) return <Navigate to="/login" replace />; // Redirect to login if user object is null
+const ProtectedRoute = ({ children, allowedRole, user, overrideRole, loading }) => {
+    if (loading) return <div className="loading-screen">Authenticating TNImpact...</div>;
+    if (!user) return <Navigate to="/login" replace />; 
 
-    // Effective role allows admins to simulate being a driver for testing purposes
     const effectiveRole = overrideRole || user.role;
 
-    // RBAC: Role-Based Access Control logic
     if (allowedRole && effectiveRole !== allowedRole) {
+        console.warn(`[Auth Guard] Path requires ${allowedRole}, but user is ${effectiveRole}. Redirecting...`);
         return <Navigate to={effectiveRole === 'admin' ? '/admin' : '/driver'} replace />;
     }
-    return children; // Access granted
+    return children; 
 };
 
 // Firebase Data Management Imports
-import {
-    subscribeToAuthChanges,
-    logout as firebaseLogout,
-    subscribeToOrders,
-    addOrder as firebaseAddOrder,
+import { 
+    subscribeToAuthChanges, 
+    subscribeToOrders, 
+    subscribeToDrivers, 
+    logout as firebaseLogout, 
+    addOrder as firebaseAddOrder, 
+    addDriver as firebaseAddDriver, 
+    updateDriver as firebaseUpdateDriver, 
+    deleteDriver as firebaseDeleteDriver,
     deleteOrder as firebaseDeleteOrder,
-    updateOrder,
-    subscribeToDrivers,
-    addDriver as firebaseAddDriver,
-    updateDriver as firebaseUpdateDriver
+    updateOrder
 } from './services/firebaseService';
+import { logout as logoutFromBackend, syncWithBackend } from './services/backendAuthService';
+import { startGpsWatch } from './utils/gpsUtils';
+import { 
+    saveToStorage, 
+    getFromStorage, 
+    STORAGE_KEYS,
+    initializeDefaultStorage
+} from './services/storageService';
+import { 
+    generateNextTrafficMultiplier, 
+    getTrafficStatusLabel, 
+    TRAFFIC_CONFIG 
+} from './logic/trafficSimulation';
+import { 
+    calculatePredictedDelay, 
+    evaluateRouteHealth 
+} from './logic/decisionEngine';
+
+import { 
+    computeLiveStats 
+} from './logic/statsCalculator';
+import { 
+    optimizeRoute, 
+    optimizeVRP, 
+    optimizeWithPersistentHistory 
+} from './logic/optimizer';
+
+
+import { useGps } from './hooks/useGps';
+import { recalculateSystemRoute } from './services/routeService';
+
+function AdminRouteWrapper({ user, overrideRole, loading, ...props }) {
+    return (
+        <ProtectedRoute user={user} overrideRole={overrideRole} allowedRole="admin" loading={loading}>
+            <AdminPage {...props} />
+        </ProtectedRoute>
+    );
+}
 
 function AppContent() { // Inner component to access the useNavigate hook
     // State Initialization: Application data layer
-    const [user, setUser] = useState(null); // Current authenticated user Profile
-    const [userOverrideRole, setUserOverrideRole] = useState(null); // Driver simulation toggle
+    const [user, setUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [userOverrideRole, setUserOverrideRole] = useState(null);
     const [orders, setOrders] = useState([]); // Master list of delivery orders
     const [route, setRoute] = useState([]); // The currently calculated sequence of stops
     const [currentStopIndex, setCurrentStopIndex] = useState(0); // Progress tracker for driver mission
     const [routeStatus, setRouteStatus] = useState('On Time'); // High-level status for telemetry
+    const [trafficMultiplier, setTrafficMultiplier] = useState(1.0); // Real-time congestion factor
     const [delayMinutes, setDelayMinutes] = useState(0); // Accuracy factor for ETA
+    const [delayHistory, setDelayHistory] = useState([]); // Persistent log of historical stop delays
+    const [lastRecalcTime, setLastRecalcTime] = useState(0); // Cooldown for auto-recalculation
     const [stats, setStats] = useState({ fuel: 0, carbon: 0, total_cost: 0, breakdown: null }); // Performance metrics
     const [isCalculating, setIsCalculating] = useState(false); // Global loading state for optimization runs
-    const [liveLocation, setLiveLocation] = useState(null); // Real-time GPS coordinates of the device
-    const [gpsStatus, setGpsStatus] = useState('Searching'); // UI indicator for location sensor health
     const [drivers, setDrivers] = useState([]); // Fleet assets list for VRP multi-driver slotting
     const [selectedSimulatedDriverId, setSelectedSimulatedDriverId] = useState(null); // View control for simulations
-    const navigate = useNavigate(); // React Router hook for programmatic redirects
+    const navigate = useNavigate();
 
-    // 1 — Authentication Lifecycle Sync
+    // 1 — Geolocation & Tracking (Hook-based)
+    const activeRole = userOverrideRole || user?.role;
+    const { liveLocation, gpsStatus } = useGps(activeRole === 'driver');
+
+    // 2 — Authentication Lifecycle Sync
     useEffect(() => {
         const unsubscribe = subscribeToAuthChanges((currentUser) => {
-            setUser(currentUser); // Update local user state from Firebase broadcast
-            if (currentUser && (window.location.pathname === '/login' || window.location.pathname === '/' || window.location.pathname === '/signup')) {
-                navigate(currentUser.role === 'admin' ? '/admin' : '/driver'); // Redirect on login success
+            if (currentUser) {
+                console.log(`[App] Auth Update: ${currentUser.email}`);
+                setUser(currentUser);
+                setAuthLoading(false);
+                // Sync Firebase ID Token to localStorage so all backend API calls
+                // can attach it as a Bearer token (fixes 401 on every API call)
+                syncWithBackend().catch(e => console.warn('[Auth] Token sync failed:', e));
+            } else {
+                setUser(null);
+                setAuthLoading(false);
             }
         });
-        return () => unsubscribe(); // Cleanup listener on unmount
-    }, [navigate]);
+        return () => unsubscribe();
+    }, []);
 
-    // 2 — Firestore Real-time Collections Sync (Orders & Drivers)
+    // 3 — Firestore Real-time Collections Sync (Orders & Drivers)
     useEffect(() => {
         const unsubscribeOrders = subscribeToOrders((newOrders) => {
             if (newOrders && newOrders.length > 0) {
-                setOrders(newOrders); // Push fresh cloud data to local state
+                setOrders(newOrders);
             } else {
-                const saved = getFromStorage('route_orders');
-                setOrders(saved && saved.length > 0 ? saved : mockOrders); // Fallback to memory or mock
+                const saved = getFromStorage(STORAGE_KEYS.MASTER_ORDERS);
+                setOrders(saved && saved.length > 0 ? saved : mockOrders);
             }
         });
 
         const unsubscribeDrivers = subscribeToDrivers((newDrivers) => {
-            setDrivers(newDrivers); // Sync driver fleet definitions
+            setDrivers(newDrivers);
         });
 
         return () => {
@@ -92,7 +139,7 @@ function AppContent() { // Inner component to access the useNavigate hook
         };
     }, []);
 
-    // 3 — Local Storage Hydration (Persistent Session across Refreshes)
+    // 4 — Local Storage Hydration
     useEffect(() => {
         const savedRoute = getFromStorage('route_active');
         if (savedRoute) setRoute(savedRoute);
@@ -103,154 +150,124 @@ function AppContent() { // Inner component to access the useNavigate hook
         const savedStatus = getFromStorage('route_status');
         if (savedStatus) setRouteStatus(savedStatus);
 
-        initializeDefaultStorage(); // Ensure base keys exist in LocalStorage
+        initializeDefaultStorage();
     }, []);
 
-    // 4 — Real-time Geolocation Hardware Watcher
+    // 5 — Real-time Traffic Simulation Engine
     useEffect(() => {
-        if (!navigator.geolocation) {
-            setGpsStatus('Incompatible'); // Browser doesn't support Location API
-            return;
+        const interval = setInterval(() => {
+            const newMultiplier = generateNextTrafficMultiplier();
+            setTrafficMultiplier(newMultiplier);
+            setRouteStatus(getTrafficStatusLabel(newMultiplier));
+        }, TRAFFIC_CONFIG.UPDATE_INTERVAL_MS);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // 6 — Rule-Based Decision Engine: Autonomous Recalculation Flow
+    useEffect(() => {
+        if (!route || route.length === 0 || isCalculating) return;
+
+        const predictedTotalDelay = calculatePredictedDelay(route.slice(currentStopIndex), trafficMultiplier, delayHistory);
+        setDelayMinutes(predictedTotalDelay);
+
+        const hasHighPriorityRemaining = route.slice(currentStopIndex).some(s => s.priority > 5);
+        const reason = evaluateRouteHealth(predictedTotalDelay, hasHighPriorityRemaining, trafficMultiplier, lastRecalcTime);
+
+        if (reason) {
+            setLastRecalcTime(Date.now());
+            handleRecalculateRoute();
         }
+    }, [trafficMultiplier, route, currentStopIndex, isCalculating, delayHistory]);
 
-        const startGpsWatch = (highAccuracy = true) => {
-            return navigator.geolocation.watchPosition(
-                (pos) => {
-                    setLiveLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                    setGpsStatus('Active'); // Successfully streaming coordinates
-                },
-                (err) => {
-                    console.warn(`GPS(${highAccuracy ? 'High' : 'Low'}):`, err.message);
-                    if (err.code === 3 && highAccuracy) { // Timeout on GPS fix
-                        setGpsStatus('Searching (Low Accuracy)...');
-                        navigator.geolocation.clearWatch(watchId); // Switch to cell tower/wifi location
-                        watchId = startGpsWatch(false);
-                    } else {
-                        // Map hardware error codes to human-readable UI messages
-                        if (err.code === 1) setGpsStatus('Permission Denied');
-                        else if (err.code === 2) setGpsStatus('Location Unavailable');
-                        else if (err.code === 3) setGpsStatus('Search Timeout');
-                    }
-                },
-                { enableHighAccuracy: highAccuracy, timeout: 15000, maximumAge: 10000 }
-            );
-        };
-
-        let watchId = startGpsWatch(true); // Initiate high-accuracy stream
-        return () => { if (watchId) navigator.geolocation.clearWatch(watchId); }; // Teardown hardware listener
-    }, []);
-
-    // 5 — Local Persistence Middleware (Save UI changes to LocalStorage)
+    // 7 — Persistence & Stats Middleware
     useEffect(() => {
-        if (user) saveToStorage('route_user', user);
-        saveToStorage('route_orders', orders);
-        saveToStorage('route_active', route);
-        saveToStorage('route_index', currentStopIndex);
-        saveToStorage('route_status', routeStatus);
+        if (user) saveToStorage(STORAGE_KEYS.USER_PROFILE, user);
+        saveToStorage(STORAGE_KEYS.MASTER_ORDERS, orders);
+        saveToStorage(STORAGE_KEYS.ACTIVE_ROUTE, route);
+        saveToStorage(STORAGE_KEYS.CURRENT_INDEX, currentStopIndex);
+        saveToStorage(STORAGE_KEYS.ROUTE_STATUS, routeStatus);
 
-        // Stats calculation — use actual route distance where available,
-        // fall back to a per-stop heuristic only when no route exists yet.
-        const safeOrders = Array.isArray(orders) ? orders : [];
-        const routeDistance = stats.totalDistance || (safeOrders.length * 5);
-        const currentZone = getCurrentTrafficZone() || "low";
-        const trafficMultiplier = getTrafficMultiplier(currentZone) || 1.0;
-        const baseFuel = calculateFuelConsumption(routeDistance, 1.0, 0.15) || 0;
-        const fuel = baseFuel * trafficMultiplier;
-        const carbon = calculateCarbonFootprint(fuel) || 0;
+        const { fuel, carbon } = computeLiveStats(orders, stats, trafficMultiplier);
+        setStats(prev => ({ ...prev, fuel, carbon }));
+    }, [orders, user, route, currentStopIndex, routeStatus, trafficMultiplier]);
 
-        setStats(prev => ({ // Update visual KPI stats
-            ...prev,
-            fuel: (fuel || 0).toFixed(2),
-            carbon: (carbon || 0).toFixed(2)
-        }));
-    }, [orders, user, route, currentStopIndex, routeStatus]);
-
-    // 6 — Enterprise Route Optimization Orchestrator (VRP Service Call)
     const handleRecalculateRoute = async () => {
-        if (orders.length === 0) return;
-
-        setIsCalculating(true); // Show spinner/overlay
+        if (isCalculating) return;
+        setIsCalculating(true);
         try {
-            const pending = orders.filter(o => o.status === 'Pending');
-            if (pending.length > 0) {
-                const savedSettings = JSON.parse(localStorage.getItem('route_settings')) || {};
-                const officeLocation = {
-                    lat: parseFloat(savedSettings.officeLat) || 13.0827,
-                    lng: parseFloat(savedSettings.officeLng) || 80.2707,
-                    id: 'OFFICE-DEPOT',
-                    customer: 'Smart Depot'
-                };
-
-                // Map fleet to backend protocol
-                const vehicles = (drivers && drivers.length > 0 ? drivers : [{ id: 'DRV-001' }]).map(d => ({
-                    vehicle_id: d.id,
-                    capacity: parseInt(d.capacity) || 100,
-                    fuel_type: d.fuelType || 'Diesel',
-                    consumption_liters_per_100km: parseFloat(d.consumption) || 12.0,
-                    driver_hourly_wage: parseFloat(d.hourlyWage) || 250.0,
-                    idle_cost_per_hour: parseFloat(d.idleCost) || 50.0
-                }));
-
-                // Map tasks to backend protocol
-                const stops = pending.map(o => ({
-                    lat: o.lat, lng: o.lng, id: o.id.toString(),
-                    customer: o.customer || 'Client', demand_units: parseInt(o.weight) || 1,
-                    service_time_minutes: parseInt(savedSettings.serviceTimeMin) || 10,
-                    time_window_start: 0, time_window_end: 86400
-                }));
-
-                // Call the Cloud Optimizer Service
-                const result = await optimizeVRP(officeLocation, vehicles, stops);
-
-                if (result && result.vehicles) { // Success: Multi-vehicle solution received
-                    let newGlobalRoute = [];
-                    result.vehicles.forEach(vr => {
-                        newGlobalRoute = [...newGlobalRoute, ...vr.ordered_stops];
-                    });
-                    setRoute(newGlobalRoute);
-                    saveToStorage('route_active', newGlobalRoute);
-                    setStats(prev => ({ ...prev, total_cost: result.total_cost, breakdown: result.cost_breakdown }));
-                } else { // Fallback: Run local Greedy-TSP algorithm if server is unreachable
-                    console.warn("VRP failed. Falling back to local optimization.");
-                    const groups = {}; // Simple driver assignment grouping
-                    pending.forEach(o => {
-                        const gid = o.driverId || 'unassigned';
-                        if (!groups[gid]) groups[gid] = [];
-                        groups[gid].push(o);
-                    });
-                    let fallbackRoute = [];
-                    for (const gid in groups) {
-                        if (gid === 'unassigned') continue;
-                        const res = await optimizeRoute(officeLocation, groups[gid]);
-                        fallbackRoute = [...fallbackRoute, ...res.orderedRoute];
-                    }
-                    setRoute(fallbackRoute);
+            const result = await recalculateSystemRoute({
+                orders,
+                route,
+                drivers,
+                liveLocation,
+                currentStopIndex
+            });
+            if (result && result.route) {
+                setRoute(result.route);
+                saveToStorage('route_active', result.route);
+                
+                if (result.stats) {
+                    setStats(prev => ({
+                        ...prev,
+                        ...result.stats
+                    }));
                 }
             }
-        } catch (error) { console.error("Optimization failed:", error); }
-        finally { setIsCalculating(false); }
+        } catch (error) {
+            console.error("Critical Optimization failed:", error);
+        } finally {
+            setIsCalculating(false);
+        }
     };
 
-    // Auto-Optimize when PENDING order count changes (not on every status update).
-    // Debounced 800ms to avoid firing on rapid Firestore batch syncs.
+    // Auto-Optimize when data drift detected (Missing stops or unassigned fleet)
     useEffect(() => {
-        const pendingCount = orders.filter(o => o.status === 'Pending').length;
-        if (pendingCount === 0) return;
+        const pendingOrders = orders.filter(o => o.status === 'Pending');
+        if (pendingOrders.length === 0) return;
 
-        const timer = setTimeout(() => { handleRecalculateRoute(); }, 800);
+        // Check if all pending orders are present in the active route
+        const activeRouteStopIds = new Set(route.map(s => String(s.id)));
+        const allPendingHandled = pendingOrders.every(o => activeRouteStopIds.has(String(o.id)));
+        
+        // Detection: Is the fleet multi-driver? If so, does the route reflect that?
+        const uniqueDriversInRoute = new Set(
+            route.filter(s => s.driverId && !String(s.id).startsWith('HQ')).map(s => s.driverId)
+        );
+        const isFleetCollapsed = drivers.length > 1 && uniqueDriversInRoute.size === 1;
+
+        // Condition for skip: All orders handled, route exists, and fleet is distributed correctly
+        if (allPendingHandled && route.length > 0 && !isFleetCollapsed) return;
+
+        const now = Date.now();
+        if (now - lastRecalcTime < 5000) return;
+
+        const timer = setTimeout(() => { 
+            setLastRecalcTime(Date.now());
+            handleRecalculateRoute(); 
+        }, 1800);
         return () => clearTimeout(timer);
-    }, [orders.filter(o => o.status === 'Pending').length]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [JSON.stringify(orders.map(o => ({id: o.id, status: o.status}))), route.length, drivers.length, lastRecalcTime]);
 
     // 7 — Event Handlers & Data Mutations
     const handleLogin = (u) => { setUser(u); u.role === 'admin' ? navigate('/admin') : navigate('/driver'); };
     const handleLogout = async () => {
-        try { await firebaseLogout(); setUser(null); setUserOverrideRole(null); localStorage.removeItem('route_user'); navigate('/login'); }
+        try { 
+            await firebaseLogout(); 
+            logoutFromBackend(); // Clear backend JWT session
+            setUser(null); 
+            setUserOverrideRole(null); 
+            localStorage.removeItem('route_user'); 
+            navigate('/login'); 
+        }
         catch (e) { console.error("Logout error", e); }
     };
+
 
     const handleAddOrder = (o) => firebaseAddOrder(o).catch(e => console.error(e));
     const handleAddDriver = (d) => firebaseAddDriver(d).catch(e => console.error(e));
     const handleUpdateDriver = (id, up) => firebaseUpdateDriver(id, up).catch(e => console.error(e));
+    const handleDeleteDriver = (id) => firebaseDeleteDriver(id).catch(e => console.error(e));
 
     const handleCompleteOrder = async (id) => {
         // Special logic for base-return/start nodes that aren't in Firestore
@@ -273,7 +290,11 @@ function AppContent() { // Inner component to access the useNavigate hook
     };
 
     const handleManualRecalculate = async () => { // Single-driver iterative refinement
-        const loc = liveLocation || { lat: 11.0175, lng: 76.9681 };
+        const savedSettings = JSON.parse(localStorage.getItem('route_settings')) || {};
+        const loc = liveLocation || { 
+            lat: parseFloat(savedSettings.officeLat) || 13.0827, 
+            lng: parseFloat(savedSettings.officeLng) || 80.2707 
+        };
         setIsCalculating(true);
         try {
             const up = await optimizeWithPersistentHistory(loc, route, currentStopIndex, { vehicleConsumptionRate: 0.15 });
@@ -289,20 +310,22 @@ function AppContent() { // Inner component to access the useNavigate hook
     };
 
     // 8 — Rendering Logic & Routing Map
+    if (authLoading) return <div className="loading-screen">Synchronizing Fleet Security...</div>;
+
     return (
         <Routes>
             <Route path="/" element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/driver'} /> : <Navigate to="/login" />} />
-            <Route path="/login" element={<LoginPage onLogin={handleLogin} mode="login" />} />
-            <Route path="/signup" element={<LoginPage onLogin={handleLogin} mode="signup" />} />
+            <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage key="login" onLogin={handleLogin} mode="login" />} />
+            <Route path="/signup" element={user ? <Navigate to="/" replace /> : <LoginPage key="signup" onLogin={handleLogin} mode="signup" />} />
 
-            <Route path="/admin" element={
-                <ProtectedRoute user={user} overrideRole={userOverrideRole} allowedRole="admin">
-                    <AdminPage orders={orders} route={route} setRoute={setRoute} isCalculating={isCalculating} onRecalculate={handleRecalculateRoute} onAddOrder={handleAddOrder} onDeleteOrder={handleDeleteOrder} onLogout={handleLogout} onToggleRole={toggleRole} drivers={drivers} onAddDriver={handleAddDriver} onUpdateDriver={handleUpdateDriver} gpsStatus={gpsStatus} />
-                </ProtectedRoute>
-            } />
+            <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
+            <Route path="/admin/:tab" element={<AdminRouteWrapper {...{user, orders, route, setRoute, isCalculating, onRecalculate: handleRecalculateRoute, onAddOrder: handleAddOrder, onDeleteOrder: handleDeleteOrder, onLogout: handleLogout, onToggleRole: toggleRole, drivers, onAddDriver: handleAddDriver, onUpdateDriver: handleUpdateDriver, onDeleteDriver: handleDeleteDriver, gpsStatus, stats}} overrideRole={userOverrideRole} loading={authLoading} />} />
+            <Route path="/admin/:tab/:id" element={<AdminRouteWrapper {...{user, orders, route, setRoute, isCalculating, onRecalculate: handleRecalculateRoute, onAddOrder: handleAddOrder, onDeleteOrder: handleDeleteOrder, onLogout: handleLogout, onToggleRole: toggleRole, drivers, onAddDriver: handleAddDriver, onUpdateDriver: handleUpdateDriver, onDeleteDriver: handleDeleteDriver, gpsStatus, stats}} overrideRole={userOverrideRole} loading={authLoading} />} />
+
+
 
             <Route path="/driver" element={
-                <ProtectedRoute user={user} overrideRole={userOverrideRole} allowedRole="driver">
+                <ProtectedRoute user={user} overrideRole={userOverrideRole} allowedRole="driver" loading={authLoading}>
                     {(() => {
                         // Driver View sub-routing: Admins see specific selected driver fleets
                         const isSim = (user?.role === 'admin' && userOverrideRole === 'driver');
@@ -321,7 +344,10 @@ function AppContent() { // Inner component to access the useNavigate hook
                                 orders={orders.filter(o => isSim ? o.driverId === targetId : (o.driverId === user?.uid || drivers.find(d => d.id === o.driverId)?.uid === user?.uid))}
                                 route={route.filter(o => isSim ? o.driverId === targetId : (o.driverId === user?.uid || drivers.find(d => d.id === o.driverId)?.uid === user?.uid))}
                                 driverId={targetId} currentStopIndex={currentStopIndex} setCurrentStopIndex={setCurrentStopIndex}
-                                routeStatus={routeStatus} setRouteStatus={setRouteStatus} delayMinutes={delayMinutes} setDelayMinutes={setDelayMinutes}
+                                routeStatus={routeStatus} 
+                                trafficMultiplier={trafficMultiplier} 
+                                delayMinutes={delayMinutes} 
+                                setDelayMinutes={setDelayMinutes}
                                 recalculateRoute={handleManualRecalculate} liveLocation={liveLocation} gpsStatus={gpsStatus} onComplete={handleCompleteOrder}
                                 onToggleRole={toggleRole} onLogout={handleLogout} onCycleFleet={isSim && idsInRoute.length > 1 ? handleCycle : null}
                             />

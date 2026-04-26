@@ -8,6 +8,7 @@ import { calculateCost } from './costFunction.js';
 import { applyTwoOpt } from './localSearch.js';
 import { fetchTrafficMultiplier } from './trafficClient.js';
 import { API_ROUTES } from '../config.js';
+import { getAuthHeaders, loginToBackend } from '../services/backendAuthService';
 
 /**
  * HYBRID ROUTE OPTIMIZATION ARCHITECTURE
@@ -195,24 +196,72 @@ const DEFAULT_CONFIG = {
     fuelWeight: 0.3,
     penaltyWeight: 0.1
 };
-
 /**
  * Public API: Optimize full route using backend Enterprise VRP (OR-Tools)
+ * Handles both async Celery tasks (polling) and sync inline fallback responses.
  */
 export const optimizeVRP = async (office, vehicles, stops) => {
     try {
-        const response = await fetch(API_ROUTES.optimizeRoute, {
+        const mappedStops = stops.map(s => ({
+            ...s,
+            priority: s.priority === 'High' ? 10 : (s.priority === 'Medium' ? 5 : 1)
+        }));
+
+        const initialResponse = await fetch(API_ROUTES.optimizeRoute, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ office, vehicles, stops })
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({ office, vehicles, stops: mappedStops })
         });
-        if (!response.ok) throw new Error('VRP optimization failed');
-        return await response.ok ? await response.json() : null;
+
+        if (!initialResponse.ok) throw new Error(`VRP dispatch failed (Status: ${initialResponse.status})`);
+        
+        const initialData = await initialResponse.json();
+        const { task_id, status: initialStatus, result: immediateResult } = initialData;
+
+        // ── Fast path: backend returned result immediately (sync fallback) ──
+        if (initialStatus === 'SUCCESS' && immediateResult) {
+            console.info(`[Optimizer] Inline optimization complete (task: ${task_id})`);
+            return immediateResult;
+        }
+
+        console.info(`[Optimizer] Async Task Dispatched: ${task_id}. Starting poll...`);
+
+        // ── Slow path: poll until Celery worker completes ──
+        let attempts = 0;
+        const maxAttempts = 30; // 60 seconds total (30 × 2s)
+        
+        while (attempts < maxAttempts) {
+            attempts++;
+            await new Promise(r => setTimeout(r, 2000));
+
+            const statusResponse = await fetch(API_ROUTES.taskStatus(task_id), {
+                headers: getAuthHeaders()
+            });
+
+            if (!statusResponse.ok) throw new Error('Task status check failed');
+            
+            const task = await statusResponse.json();
+            
+            if (task.status === 'SUCCESS') {
+                console.info('[Optimizer] Async optimization complete.');
+                return task.result;
+            } else if (task.status === 'FAILURE') {
+                throw new Error(`Optimization task failed: ${task.error || 'Unknown error'}`);
+            }
+
+            console.log(`[Optimizer] Task ${task_id} → ${task.status} (${attempts}/${maxAttempts})`);
+        }
+
+        throw new Error('Optimization timed out after 60 seconds.');
     } catch (error) {
-        console.error("Enterprise optimization error:", error);
+        console.error('[Optimizer] Enterprise optimization error:', error);
         return null;
     }
 };
+
 
 /**
  * Public API: Optimize full route (Local Hybrid)

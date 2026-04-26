@@ -12,6 +12,7 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8
 export const API_ROUTES = {
     // Traffic & ML Prediction
     trafficPredict: `${API_BASE}/api/v1/traffic/predict`,
+    trafficGeocode: `${API_BASE}/api/v1/traffic/geocode`,
 
     // VRP / Logistics Optimization
     optimizeRoute: `${API_BASE}/api/v1/logistics/optimize-route`,
@@ -21,4 +22,7 @@ export const API_ROUTES = {
 
     // Analytics & Engine Intelligence
     analytics: `${API_BASE}/api/v1/analytics`,
+
+    // Task & Job Management
+    taskStatus: (taskId) => `${API_BASE}/api/v1/tasks/status/${taskId}`
 };

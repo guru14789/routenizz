@@ -3,10 +3,11 @@
  * SUPPORT: Configures global parameters such as depot location (Office HQ), service times per stop, and default vehicle consumption rates.
  */
 import React, { useState } from 'react';
-
+import { addOrder, addDriver } from '../services/firebaseService';
 import './SettingsPane.css';
 
 const SettingsPane = () => {
+    const [isSeeding, setIsSeeding] = useState(false);
     const [settings, setSettings] = useState(() => {
         const saved = localStorage.getItem('route_settings');
         return saved ? JSON.parse(saved) : {
@@ -190,6 +191,63 @@ const SettingsPane = () => {
                         />
                         <span className="slider"></span>
                     </label>
+                </div>
+            </div>
+
+            <div className="settings-section" style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '2rem', marginTop: '2rem' }}>
+                <div className="section-header">
+                    <h3>Database Synchronization</h3>
+                    <p>Populate your fresh Firebase environment with demonstration assets.</p>
+                </div>
+                <div className="seed-action-box" style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                        This will add 3 drivers and 5 orders to your active Firebase project to demonstrate the VRP engine and live telemetry features.
+                    </div>
+                    <button 
+                        className="seed-btn" 
+                        disabled={isSeeding}
+                        onClick={async () => {
+                            setIsSeeding(true);
+                            try {
+                                const demoDrivers = [
+                                    { id: 'DRV-771', name: 'Arun K.', capacity: 15, fuelType: 'Diesel', consumption: 10.5, hourlyWage: 250, status: 'Active' },
+                                    { id: 'DRV-882', name: 'Varun S.', capacity: 12, fuelType: 'Electric', consumption: 15.2, hourlyWage: 220, status: 'Active' },
+                                    { id: 'DRV-993', name: 'Meera R.', capacity: 20, fuelType: 'CNG', consumption: 12.0, hourlyWage: 280, status: 'Active' }
+                                ];
+                                
+                                const demoOrders = [
+                                    { customer: 'Relay Corp', address: 'Mount Road', lat: 13.0645, lng: 80.2456, weight: 2, priority: 'High', status: 'Pending', timeWindowEnd: 720 },
+                                    { customer: 'Zenith Logistics', address: 'Velachery Main Rd', lat: 12.9815, lng: 80.2185, weight: 3, priority: 'Medium', status: 'Pending', timeWindowEnd: 900 },
+                                    { customer: 'EcoExpress', address: 'OMR Road', lat: 12.9228, lng: 80.2312, weight: 1, priority: 'Low', status: 'Pending', timeWindowEnd: 1080 },
+                                    { customer: 'North Cargo', address: 'Anna Nagar', lat: 13.0850, lng: 80.2101, weight: 5, priority: 'High', status: 'Pending', timeWindowEnd: 600 },
+                                    { customer: 'Swift Deliveries', address: 'T. Nagar', lat: 13.0418, lng: 80.2341, weight: 2, priority: 'Medium', status: 'Pending', timeWindowEnd: 1200 }
+                                ];
+
+                                await Promise.all([
+                                    ...demoDrivers.map(d => addDriver(d)),
+                                    ...demoOrders.map(o => addOrder(o))
+                                ]);
+                                
+                                alert("Firebase Synchronization Complete! Fleet and Queue populated.");
+                            } catch (err) {
+                                console.error(err);
+                                alert("Sync failed: " + err.message);
+                            } finally {
+                                setIsSeeding(false);
+                            }
+                        }}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            background: isSeeding ? '#94a3b8' : '#0f172a',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            fontWeight: '600'
+                        }}
+                    >
+                        {isSeeding ? 'SYNCING...' : 'SEED DEMO DATA'}
+                    </button>
                 </div>
             </div>
 

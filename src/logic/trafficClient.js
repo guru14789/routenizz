@@ -4,6 +4,7 @@
  * Logic to communicate with the FastAPI traffic prediction server.
  */
 import { API_ROUTES } from '../config.js';
+import { getAuthHeaders } from '../services/backendAuthService';
 
 const TRAFFIC_API_URL = API_ROUTES.trafficPredict;
 const DEFAULT_FALLBACK_MULTIPLIER = 1.2;
@@ -50,6 +51,7 @@ export const fetchTrafficMultiplier = async (distance, roadType = 0) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...getAuthHeaders() // Inject JWT for backend security
             },
             body: JSON.stringify({
                 distance_km: distance,

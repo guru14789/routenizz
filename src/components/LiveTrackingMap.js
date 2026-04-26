@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { fetchStreetRoute } from '../logic/streetRouting';
+import { fetchStreetRoute, reverseGeocode } from '../logic/streetRouting';
 import './LiveTrackingMap.css';
 
 // Fix for default marker icons in Vite/React environment
@@ -31,13 +31,13 @@ const vehicleIcon = new L.DivIcon({
 });
 
 // Custom Glowing Stop Marker with Label
-const createGlowingStopIcon = (label) => new L.DivIcon({
+const createGlowingStopIcon = (label, color = '#00f2fe') => new L.DivIcon({
     className: 'custom-glowing-stop',
     html: `
         <div class="glowing-stop-wrapper">
-            <div class="pulse-ring"></div>
-            <div class="stop-core"></div>
-            <div class="stop-label">${label}</div>
+            <div class="pulse-ring" style="border-color: ${color}"></div>
+            <div class="stop-core" style="background: ${color}"></div>
+            <div class="stop-label" style="border-left: 2px solid ${color}">${label}</div>
         </div>
     `,
     iconSize: [24, 24],
@@ -80,11 +80,11 @@ const MapController = ({ position, isNavigating, allCoords, distToTurn = 1000 })
     return null;
 };
 
-const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpdate, liveLocation, stops = [] }) => {
+const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpdate, liveLocation, stops = [], color = '#000000' }) => {
     const isUsingRealGPS = !!liveLocation;
 
-    // Stable key for routeCoordinates - avoids JSON.stringify on every render
-    const routeCoordsKey = `${routeCoordinates.length}|${routeCoordinates[0]}|${routeCoordinates[routeCoordinates.length - 1]}`;
+    // Stable key for routeCoordinates - ensures map updates if any stop in the sequence changes
+    const routeCoordsKey = useMemo(() => JSON.stringify(routeCoordinates), [routeCoordinates]);
 
     // Memoize the derived coordinates to prevent infinite update cycles
     const validCoords = React.useMemo(() => (routeCoordinates || []).filter(c =>
@@ -110,8 +110,21 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
     const vehiclePos = isUsingRealGPS ? [liveLocation.lat, liveLocation.lng] : (pathArray[currentIndex] || simulatedPos);
     const [heading, setHeading] = useState(0);
     const [isRecalculating, setIsRecalculating] = useState(false);
+    const [lastRecalcTimestamp, setLastRecalcTimestamp] = useState(0); // For flash animation
     const [currentDistToTurn, setCurrentDistToTurn] = useState(1000);
+    const [currentStreet, setCurrentStreet] = useState('');
     const prevLocRef = React.useRef(null);
+
+    // Fetch street name for current position
+    useEffect(() => {
+        if (isNavigating && vehiclePos) {
+            const timer = setTimeout(async () => {
+                const street = await reverseGeocode(vehiclePos[0], vehiclePos[1]);
+                setCurrentStreet(street);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [isNavigating, JSON.stringify(vehiclePos)]);
 
     useEffect(() => {
         setCurrentIndex(0);
@@ -122,6 +135,7 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
             const result = await fetchStreetRoute(coords);
             setStreetPath(result.path || validCoords);
             setNavSteps(result.steps || []);
+            setLastRecalcTimestamp(Date.now()); // Trigger arrival/recalc animation
         };
         getStreetPath();
     }, [coordKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -262,10 +276,11 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
 
     const dynamicIcon = L.divIcon({
         className: 'custom-nav-icon',
-        html: `<div style="transform: rotate(${iconRotOnScreen}deg); width: 40px; height: 40px; display:flex; align-items:center; justify-content:center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));">
+        html: `<div class="vehicle-marker-wrapper" style="transform: rotate(${iconRotOnScreen}deg); filter: drop-shadow(0 2px 5px rgba(0,0,0,0.4));">
                   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16 2L30 30L16 23.5L2 30L16 2Z" fill="${isNavigating ? '#101828' : '#00f2fe'}" stroke="white" stroke-width="1.8"/>
                   </svg>
+                  <div class="vehicle-pulse"></div>
                </div>`,
         iconSize: [40, 40],
         iconAnchor: [20, 20],
@@ -281,6 +296,7 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
                 <div className="tracking-status">
                     <div className={isRecalculating ? 'gps-pulse-denied' : (isUsingRealGPS ? 'gps-pulse-active' : 'gps-pulse-sim')}></div>
                     <span>{isRecalculating ? 'REROUTING...' : (isUsingRealGPS ? 'LIVE GPS ACTIVE' : 'DEV SIMULATION MODE')}</span>
+                    {isNavigating && currentStreet && <span className="street-breadcrumb">| {currentStreet}</span>}
                 </div>
             </div>
 
@@ -304,7 +320,15 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
 
                 <Polyline
                     positions={streetPath.length > 0 ? streetPath : validCoords}
-                    pathOptions={{ color: '#000000', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round' }}
+                    pathOptions={{ 
+                        color: color, 
+                        weight: isRecalculating ? 4 : 6, 
+                        opacity: isRecalculating ? 0.3 : 0.8, 
+                        lineCap: 'round', 
+                        lineJoin: 'round',
+                        dashArray: isRecalculating ? '10, 20' : 'none',
+                        className: `animated-route-line ${Date.now() - lastRecalcTimestamp < 1500 ? 'recalc-flash' : ''}`
+                    }}
                 />
 
                 {/* Destination Markers */}
@@ -322,7 +346,7 @@ const LiveTrackingMap = ({ routeCoordinates = [], isNavigating = false, onNavUpd
                     const label = stopData?.customer || stopData?.label || `Stop ${liveLocation ? i : i + 1}`;
 
                     return (
-                        <Marker key={i} position={stop} icon={createGlowingStopIcon(label)}>
+                        <Marker key={i} position={stop} icon={createGlowingStopIcon(label, color)}>
                             <Popup className="futuristic-popup">
                                 <div className="stop-popup">
                                     <strong>{label}</strong>

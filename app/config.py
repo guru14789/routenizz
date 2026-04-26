@@ -16,14 +16,23 @@ class Config:  # Object-oriented wrapper for application settings
     FUEL_PRICE: float = float(os.getenv("FUEL_PRICE", 95.0))  # Regional baseline fuel price in INR
     
     # 3. Third-Party Infrastructure URLs
-    OSRM_URL: str = os.getenv("OSRM_URL", "https://router.project-osrm.org")  # Main mapping engine endpoint
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")  # Cache/Message Broker endpoint
+    OSRM_URL: str = os.getenv("OSRM_URL", "https://router.project-osrm.org")
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./tn_logistics.db")
     
-    # 4. Observability & Telemetry Settings
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")  # Verbosity control (DEBUG, INFO, WARNING, ERROR)
-    LOG_FILE: str = os.getenv("LOG_FILE", "app.log")  # Persistent log file location
+    # 4. Security & Authentication
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key-goes-here")
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+    # 5. Observability & Telemetry Settings
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    LOG_FILE: str = os.getenv("LOG_FILE", "app.log")
     
-    # 5. Security & Stability Policies
-    RATE_LIMIT: str = "100 per minute"  # Default global throttling policy
+    # 6. Global Rate Limits
+    RATE_LIMIT: str = "100 per minute"
+
+    # 7. Orion Advanced Parameters
+    WEATHER_IMPACT_MULTIPLIER: float = float(os.getenv("WEATHER_IMPACT_MULTIPLIER", "1.0"))  # Default: 1.0 (Clear)
 
 config = Config()  # Export a singleton instance to be used by all backend components

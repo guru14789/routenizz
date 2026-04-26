@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 import { login, signUp } from '../services/firebaseService';
+import { loginToBackend } from '../services/backendAuthService';
 
 const LoginPage = ({ onLogin, mode = 'login' }) => {
     const [isLogin, setIsLogin] = useState(mode === 'login');
@@ -24,9 +25,25 @@ const LoginPage = ({ onLogin, mode = 'login' }) => {
         try {
             if (isLogin) {
                 const { user, role: userRole } = await login(email, password);
+                
+                // CRITICAL: Bridging Firebase and Backend Security
+                // If this is an Admin, we MUST also authenticate with the FastAPI backend
+                // to get the JWT token needed for our route optimization features.
+                if (userRole === 'admin') {
+                    const backendUser = email.split('@')[0]; // Extract prefix (e.g., 'admin')
+                    // For the demo environment, we ensure we have a valid token
+                    await loginToBackend(backendUser, password);
+                }
+                
                 onLogin({ email: user.email, role: userRole });
             } else {
                 const { user, role: userRole } = await signUp(email, password, role);
+                
+                if (userRole === 'admin') {
+                    const backendUser = email.split('@')[0];
+                    await loginToBackend(backendUser, password);
+                }
+                
                 onLogin({ email: user.email, role: userRole });
             }
         } catch (error) {
@@ -36,6 +53,7 @@ const LoginPage = ({ onLogin, mode = 'login' }) => {
             setIsLoading(false);
         }
     };
+
 
     return (
         <div className="login-screen">

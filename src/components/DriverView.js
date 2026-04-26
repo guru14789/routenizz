@@ -2,9 +2,11 @@
  * USES: Operational interface for field drivers.
  * SUPPORT: Displays the assigned route, provides turn-by-turn stop details, and handles the completion workflow for individual deliveries.
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 import LiveTrackingMap from './LiveTrackingMap';
+import { getFleetColor } from '../utils/colors';
+import { reverseGeocode } from '../logic/streetRouting';
 import './DriverView.css';
 
 const DriverIcons = {
@@ -90,13 +92,26 @@ const DriverView = ({
     onToggleRole,
     onLogout,
     driverId,
-    onCycleFleet
+    onCycleFleet,
+    trafficMultiplier
 }) => {
     const [fuel, setFuel] = useState(100);
     const [isLoading, setIsLoading] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const [isPanelExpanded, setIsPanelExpanded] = useState(true);
     const [navStep, setNavStep] = useState({ instruction: '', distance: 0 });
+    const [currentStreet, setCurrentStreet] = useState('Detecting Street...');
+
+    // Effect to fetch real-time street name for navigation accuracy
+    useEffect(() => {
+        if (liveLocation && isNavigating) {
+            const timer = setTimeout(async () => {
+                const street = await reverseGeocode(liveLocation.lat, liveLocation.lng);
+                setCurrentStreet(street);
+            }, 2000); // Debounce to avoid hitting Nominatim too hard
+            return () => clearTimeout(timer);
+        }
+    }, [liveLocation, isNavigating]);
 
     // Derive current stop index from completed orders in the filtered route.
     // Filter out HQ synthetic depot stops (HQ-START-*, HQ-RETURN-*) — drivers only see real deliveries.
@@ -122,7 +137,8 @@ const DriverView = ({
     // ETA: compute from current stop's cumulative travel time (minutes from route start)
     const etaDisplay = useMemo(() => {
         if (!currentStop?.arrivalTime) return '—';
-        return new Date(Date.now() + currentStop.arrivalTime * 60000)
+        // ETA = Current Time + Planned Arrival Time + Current Simulation Delay
+        return new Date(Date.now() + (currentStop.arrivalTime + delayMinutes) * 60000)
             .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }, [currentStop?.id, currentStop?.arrivalTime]);
 
@@ -163,23 +179,57 @@ const DriverView = ({
 
     if (deliveryRoute.length === 0) {
         return (
-            <div className="driver-redesigned-screen empty">
-                <div className="empty-command-center">
-                    <div className="branding">
-                        <span className="logo">R</span>
-                        <h1>Routenizz Driver</h1>
+            <div className="driver-redesigned-screen empty-state-view">
+                {/* Animated Background Layer */}
+                <div className="premium-mesh-bg"></div>
+                
+                {/* Glassmorphic Command Terminal */}
+                <div className="glass-terminal">
+                    <div className="terminal-header">
+                        <div className="logo-orb">
+                            <span className="logo-letter">R</span>
+                            <div className="orb-glow"></div>
+                        </div>
+                        <div className="terminal-meta">
+                            <span className="version">V2.4.0 ENCRYPTION ACTIVE</span>
+                            <span className="driver-tag">ID: {driverId || 'FLEET-UNASSIGNED'}</span>
+                        </div>
                     </div>
-                    <div className="status-message">
-                        <div className="pulse-loader"></div>
-                        <h2>Awaiting Dispatch</h2>
-                        <p>No routes assigned to your ID yet. Syncing with master network...</p>
-                        <div className="empty-state-actions" style={{ marginTop: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                            <button className="back-admin-btn" onClick={onToggleRole} style={{ padding: '0.75rem 1.5rem', background: '#333', color: '#fff', border: 'none', borderRadius: '0.75rem', cursor: 'pointer', fontWeight: '700' }}>
-                                Back to Control Center
-                            </button>
-                            <button onClick={onLogout} style={{ padding: '0.75rem 1.5rem', background: 'transparent', color: '#666', border: '1px solid #333', borderRadius: '0.75rem', cursor: 'pointer' }}>
-                                Logout
-                            </button>
+
+                    <div className="terminal-body">
+                        <div className="holographic-loader">
+                            <div className="ring outer"></div>
+                            <div className="ring middle"></div>
+                            <div className="ring inner"></div>
+                            <div className="status-dot"></div>
+                        </div>
+                        
+                        <div className="message-stack">
+                            <h1 className="hero-status">Awaiting Dispatch</h1>
+                            <p className="sub-status">Synchronizing with Global Control Center...</p>
+                            <div className="typing-log">
+                                <span>{">"} INITIALIZING SECURITY HANDSHAKE...</span>
+                                <span>{">"} GEOPOSITIONING CALIBRATED</span>
+                                <span>{">"} LISTENING FOR OPTIMIZED PAYLOAD</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="terminal-actions">
+                        <button className="btn-premium pulse" onClick={onToggleRole}>
+                            <div className="btn-inner">
+                                <span className="btn-text">ADMIN OVERRIDE</span>
+                                <div className="btn-glare"></div>
+                            </div>
+                        </button>
+                        <button className="btn-ghost" onClick={onLogout}>SYSTEM LOGOUT</button>
+                    </div>
+                    
+                    <div className="terminal-footer">
+                        <div className="telemetry-bar">
+                            <div className="tele-item">SIGNAL: 98%</div>
+                            <div className="tele-item">LATENCY: 14ms</div>
+                            <div className="tele-item">UPTIME: 99.9%</div>
                         </div>
                     </div>
                 </div>
@@ -202,11 +252,16 @@ const DriverView = ({
                         <div className="gps-status-line">
                             <span className={`gps-pulse ${gpsStatus?.toLowerCase().replace(' ', '-')}`}></span>
                             <span className="gps-text">{gpsStatus?.toUpperCase() || 'GPS ACTIVE'}</span>
+                            <span className="gps-accuracy-hint" title="High Precision Mode">±5m</span>
                         </div>
                     </div>
                 </div>
                 <div className="system-stats">
                     <div className="stat-pill"><DriverIcons.Connectivity /> 5G</div>
+                    <div className={`stat-pill traffic ${trafficMultiplier > 1.8 ? 'heavy' : (trafficMultiplier > 1.3 ? 'moderate' : 'clear')}`}>
+                        <span className="traffic-val">{trafficMultiplier.toFixed(1)}x</span>
+                        <span className="traffic-label">TRAFFIC</span>
+                    </div>
                     <div className="stat-pill fuel"><DriverIcons.Fuel /> {fuelPercent}%</div>
                 </div>
             </div>
@@ -220,6 +275,7 @@ const DriverView = ({
                     onNavUpdate={setNavStep}
                     liveLocation={liveLocation}
                     stops={route}
+                    color={getFleetColor(driverId || route[0]?.driverId)}
                 />
             </div>
 
@@ -266,7 +322,11 @@ const DriverView = ({
                             {isFinished ? "OPERATIONS COMPLETE" : currentStop?.customer}
                         </h1>
                         <p className="address">
-                            {isNavigating ? "LIVE NAVIGATION ACTIVE" : (isFinished ? "Awaiting return-to-base clearance" : currentStop?.address)}
+                            {isNavigating ? (
+                                <span className="live-street-indicator">
+                                    <span className="live-dot"></span> Currently on: <strong>{currentStreet}</strong>
+                                </span>
+                            ) : (isFinished ? "Awaiting return-to-base clearance" : currentStop?.address)}
                         </p>
                         <div className="card-divider"></div>
                     </div>

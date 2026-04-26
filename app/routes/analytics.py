@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from ml.predictor import predictor
 from ml.traffic_model import TrafficModelMetadata
+from app.utils.firebase_auth import require_admin
 import datetime
 import random
 
@@ -10,7 +11,7 @@ router = APIRouter()
 _FEATURE_COLOURS = ["#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f59e0b"]
 
 @router.get("/feature-importance")
-async def get_feature_importance():
+async def get_feature_importance(current_user: dict = Depends(require_admin)):
     """
     Returns the relative importance of features extracted directly from the
     trained Random Forest model via model.feature_importances_.
@@ -41,7 +42,7 @@ async def get_feature_importance():
     ]
 
 @router.get("/traffic-trend")
-async def get_traffic_trend():
+async def get_traffic_trend(current_user: dict = Depends(require_admin)):
     """Returns a 24-hour predicted traffic multiplier trend for today using the live ML model."""
     today = datetime.datetime.now()
     day_of_week = today.weekday()
@@ -54,7 +55,7 @@ async def get_traffic_trend():
     return trend
 
 @router.get("/performance-scatter")
-async def get_performance_scatter():
+async def get_performance_scatter(current_user: dict = Depends(require_admin)):
     """
     Returns actual vs predicted scatter data.
     NOTE: This is currently simulated. In production, replace with a query
@@ -75,7 +76,7 @@ async def get_performance_scatter():
     return data
 
 @router.get("/accuracy-trend")
-async def get_accuracy_trend():
+async def get_accuracy_trend(current_user: dict = Depends(require_admin)):
     """
     Returns a 7-day model accuracy trend.
     NOTE: Simulated. Replace with real evaluation logs when trip history is stored.
@@ -87,7 +88,7 @@ async def get_accuracy_trend():
     ]
 
 @router.get("/engine-status")
-async def get_engine_status():
+async def get_engine_status(current_user: dict = Depends(require_admin)):
     """Returns live status metadata for the ML engine."""
     model_active = predictor.model is not None
     # Read R² from model metadata if available, otherwise use the known trained value

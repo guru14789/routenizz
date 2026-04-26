@@ -8,6 +8,7 @@
  * This turns straight lines into real street paths just like Google Maps.
  */
 import { API_ROUTES } from '../config.js';
+import { getAuthHeaders } from '../services/backendAuthService';
 
 /**
  * Fetches street-level geometry for a sequence of stops.
@@ -92,9 +93,14 @@ export const fetchStreetRoute = async (coordinates) => {
                                     instructionBase = `${type.charAt(0).toUpperCase() + type.slice(1)} ${modifier}${target}`;
                             }
 
-                            // Clean formatting anomalies
+                            // Clean formatting anomalies and improve precision
                             let finalInstruction = instructionBase.replace(/\s+/g, ' ').replace(' onto ', ' onto ').trim();
                             if (finalInstruction.endsWith(' onto')) finalInstruction = finalInstruction.replace(' onto', '');
+                            
+                            // Accuracy Fix: If street name is missing, try to use the modifier
+                            if (!street && !ref) {
+                                finalInstruction = `${type.charAt(0).toUpperCase() + type.slice(1)} ${modifier}`.trim();
+                            }
 
                             steps.push({
                                 instruction: finalInstruction,
@@ -111,6 +117,35 @@ export const fetchStreetRoute = async (coordinates) => {
     } catch (error) {
         console.error('Error fetching street route:', error);
         return { path: coordinates, steps: [] }; // Fallback to straight lines on error
+    }
+};
+
+/**
+ * Fetches the actual street name for a given lat/lng using Nominatim (OpenStreetMap).
+ * This provides higher accuracy than raw OSRM step names.
+ */
+export const reverseGeocode = async (lat, lng) => {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+            {
+                headers: {
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'User-Agent': 'TNImpact-Logistics-App' // Required by Nominatim policy
+                }
+            }
+        );
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            // Prioritize road/suburb/neighbourhood for local accuracy
+            return addr.road || addr.suburb || addr.neighbourhood || addr.city || "Unnamed Road";
+        }
+        return "Unknown Location";
+    } catch (error) {
+        console.error("Reverse geocode failed:", error);
+        return "Unnamed Road";
     }
 };
 
@@ -149,7 +184,10 @@ export const fetchOptimizedRoute = async (origin, destination) => {
     try {
         const response = await fetch(API_ROUTES.navRecalculate, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...getAuthHeaders() // Inject JWT for backend security
+            },
             body: JSON.stringify({
                 trip_id: 'smart_ui_sim_' + Date.now(),
                 current_lat: origin.lat,

@@ -3,9 +3,11 @@
  * SUPPORT: Allows admins to add, update, and remove drivers and vehicles, as well as assign specific route orders to vehicle capacities.
  */
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import './DriverManagement.css';
 import Dashboard from './Dashboard';
+import { getFleetColor } from '../utils/colors';
 
 // mockDrivers removed - using externalDrivers from props
 
@@ -35,10 +37,14 @@ const DriverManagementIcons = {
     )
 };
 
-const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder, onDeleteOrder, externalDrivers = [], onAddDriver, onUpdateDriver, onRecalculate, onToggleRole }) => {
+const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder, onDeleteOrder, externalDrivers = [], onAddDriver, onUpdateDriver, onDeleteDriver, onRecalculate, onToggleRole, selectedDriverId }) => {
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDriver, setSelectedDriver] = useState(null);
     const fleet = externalDrivers.length > 0 ? externalDrivers : [];
+    
+    // Sync selected driver with URL param
+    const selectedDriver = selectedDriverId ? fleet.find(d => d.id === selectedDriverId) : null;
+
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingDriver, setEditingDriver] = useState(null); // Added editingDriver state
     const [driverFormData, setDriverFormData] = useState({
@@ -122,7 +128,7 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
             }
         } else {
             // Handle add logic
-            const id = `DRV-${String(fleet.length + 1).padStart(3, '0')}`;
+            const id = `DRV-${String(fleet.length + 1).padStart(3, '0')}-${Date.now().toString(36).slice(-4)}`;
             const driverToAdd = {
                 ...driverFormData,
                 id,
@@ -179,7 +185,7 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
                 <div className="dm-header" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     <button
                         className="back-btn"
-                        onClick={() => setSelectedDriver(null)}
+                        onClick={() => navigate('/admin/drivers')}
                         style={{ padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #d0d5dd', background: '#fff', cursor: 'pointer', fontWeight: '500' }}
                     >
                         ← Back to Fleet
@@ -196,9 +202,9 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
                 <div style={{ marginTop: '2rem' }}>
                     <Dashboard
                         orders={driverOrders}
-                        route={route}
+                        route={driverOptimizedOrders}
                         setRoute={setRoute}
-                        optimizedOrders={driverOptimizedOrders}
+                        isCalculating={false} // Prevent global re-calc loop in individual view
                         onAddOrder={(newOrder) => onAddOrder({ ...newOrder, driverId: selectedDriver.id })}
                         onDeleteOrder={onDeleteOrder}
                         onRecalculate={onRecalculate}
@@ -232,9 +238,9 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
 
             <div className="drivers-grid">
                 {filteredDrivers.map(driver => (
-                    <div className="driver-card" key={driver.id}>
+                    <div className="driver-card" key={driver.id} style={{ borderTop: `4px solid ${getFleetColor(driver.id)}` }}>
                         <div className="driver-card-header">
-                            <div className="driver-avatar">{driver.avatar}</div>
+                            <div className="driver-avatar" style={{ backgroundColor: getFleetColor(driver.id), color: '#fff' }}>{driver.avatar}</div>
                             <div className="driver-info">
                                 <h3>{driver.name}</h3>
                                 <span className="driver-id">{driver.id}</span>
@@ -261,7 +267,7 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
                         </div>
 
                         <div className="driver-actions">
-                            <button
+                             <button
                                 className="contact-btn"
                                 style={{ padding: '0.4rem 0.6rem' }}
                                 onClick={() => handleOpenModal(driver)}
@@ -276,10 +282,24 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
                             </button>
                             <button
                                 className="assign-btn"
-                                onClick={() => setSelectedDriver(driver)}
+                                onClick={() => navigate(`/admin/drivers/${driver.id}`)}
                             >
                                 <DriverManagementIcons.Map /> Manage Route
                             </button>
+                            {onDeleteDriver && (
+                                <button
+                                    className="contact-btn"
+                                    style={{ padding: '0.4rem 0.6rem', color: '#d92d20', borderColor: '#fda29b' }}
+                                    onClick={() => {
+                                        if (window.confirm(`Remove ${driver.name} from the fleet? This cannot be undone.`)) {
+                                            onDeleteDriver(driver.id);
+                                        }
+                                    }}
+                                    title="Remove driver"
+                                >
+                                    ✕ Remove
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}

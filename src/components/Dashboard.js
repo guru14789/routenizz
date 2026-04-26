@@ -6,6 +6,7 @@ import React, { useState } from 'react'; // React core for managing local UI sta
 import OrderForm from './OrderForm'; // Import the order input component for adding manual tasks
 import RouteMap from './RouteMap'; // Import the Leaflet-based map for spatial visualization
 import PremiumStats from './PremiumStats'; // Import the KPI visualization strip
+import SystemHealth from './SystemHealth'; // Live backend dependency health monitor
 
 const Dashboard = ({
     orders,
@@ -98,6 +99,8 @@ const Dashboard = ({
                         {/* Integrated Interactive Map showing all routes and stop pins */}
                         <RouteMap stops={route} unassignedOrders={orders} />
                     </div>
+                    {/* Live Backend Status — Orion Superiority Feature */}
+                    <SystemHealth />
                 </div>
             </div>
         </div>

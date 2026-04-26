@@ -65,6 +65,15 @@ trap cleanup SIGINT SIGTERM
 # ─────────────────────────────────────────────────────────────────────────────
 step "Checking system dependencies"
 
+# Preference for stable versions over experimental 3.14+
+if command -v python3.13 &>/dev/null; then
+    PY_CMD="python3.13"
+elif command -v python3.12 &>/dev/null; then
+    PY_CMD="python3.12"
+else
+    PY_CMD="python3"
+fi
+
 check_cmd() {
     if command -v "$1" &>/dev/null; then
         success "$1 found  ($(command -v "$1"))"
@@ -74,23 +83,32 @@ check_cmd() {
     fi
 }
 
-check_cmd python3
+check_cmd "$PY_CMD"
 check_cmd node
 check_cmd npm
 
-PYTHON_VER=$(python3 -c 'import sys; print(".".join(map(str,sys.version_info[:2])))')
+PYTHON_VER=$("$PY_CMD" -c 'import sys; print(".".join(map(str,sys.version_info[:2])))')
 NODE_VER=$(node --version)
 NPM_VER=$(npm --version)
-info "Python $PYTHON_VER  |  Node $NODE_VER  |  npm $NPM_VER"
+info "Using $PY_CMD ($PYTHON_VER)  |  Node $NODE_VER  |  npm $NPM_VER"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 2 — Python virtual environment
 # ─────────────────────────────────────────────────────────────────────────────
 step "Setting up Python virtual environment"
 
+# Re-create venv if the python version changed (prevents pydantic build issues)
+if [[ -d "$SCRIPT_DIR/venv" ]]; then
+    VENV_PY_VER=$(venv/bin/python -c 'import sys; print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || echo "unknown")
+    if [[ "$VENV_PY_VER" != "$PYTHON_VER" ]]; then
+        info "Python version mismatch (Venv: $VENV_PY_VER, System: $PYTHON_VER). Re-creating venv..."
+        rm -rf "$SCRIPT_DIR/venv"
+    fi
+fi
+
 if [[ ! -d "$SCRIPT_DIR/venv" ]]; then
-    info "Creating new venv..."
-    python3 -m venv venv
+    info "Creating new venv with $PY_CMD..."
+    "$PY_CMD" -m venv venv
     success "venv created"
 else
     success "venv already exists — skipping creation"
@@ -106,12 +124,19 @@ success "venv activated: $(which python)"
 # ─────────────────────────────────────────────────────────────────────────────
 step "Installing Python dependencies"
 
+# Fix for latest Python versions (3.14+) which require forward compatibility for PyO3
+export PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+
 if pip install -r requirements.txt -q; then
     success "Python packages installed"
 else
     error "pip install failed. Check requirements.txt."
     exit 1
 fi
+
+# Ensure internal modules (routing, ml, app) are discoverable by Celery and Uvicorn
+export PYTHONPATH="$SCRIPT_DIR"
+success "PYTHONPATH configured: $PYTHONPATH"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 4 — Node dependencies
@@ -151,52 +176,84 @@ fi
 success ".env found"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STEP 6 — Port availability check
+# STEP 6 — Dependency & Infrastructure Check
 # ─────────────────────────────────────────────────────────────────────────────
-step "Checking port availability"
+step "Verifying infrastructure availability"
 
 check_port() {
     local port=$1
     local name=$2
     if lsof -ti:"$port" &>/dev/null; then
-        warn "Port $port ($name) is already in use — killing existing process..."
-        kill "$(lsof -ti:"$port")" 2>/dev/null || true
+        warn "Port $port ($name) is already in use — recycling process..."
+        kill -9 "$(lsof -ti:"$port")" 2>/dev/null || true
         sleep 1
         success "Port $port cleared"
     else
-        success "Port $port ($name) is free"
+        success "Port $port ($name) is available"
     fi
 }
 
 check_port 8001 "FastAPI Backend"
 check_port 5173 "Vite Frontend"
 
+# Redis check (required for Celery/Task Queue)
+if lsof -ti:6379 &>/dev/null; then
+    success "Redis is running (Port 6379)"
+else
+    if command -v redis-server &>/dev/null; then
+        info "Redis is not running. Starting local redis-server..."
+        redis-server --daemonize yes 2>/dev/null || true
+        sleep 1
+        if lsof -ti:6379 &>/dev/null; then
+            success "Redis started successfully"
+        else
+            warn "Failed to start Redis. Celery tasks may fail. Check your Redis installation."
+        fi
+    else
+        warn "Redis server not found in PATH. Enterprise optimization (Celery) requires Redis."
+    fi
+fi
+
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 7 — Start FastAPI backend (background)
 # ─────────────────────────────────────────────────────────────────────────────
-step "Starting FastAPI ML Backend  (port 8001)"
+step "Igniting FastAPI ML Backend  (port 8001)"
+
+# Start with a clean log
+echo "--- TNImpact Backend Log Start: $(date) ---" > "$BACKEND_LOG"
 
 uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8001 \
     --reload \
     --log-level warning \
-    > "$BACKEND_LOG" 2>&1 &
+    >> "$BACKEND_LOG" 2>&1 &
 
 BACKEND_PID=$!
 echo "$BACKEND_PID" >> "$PID_FILE"
-info "Backend PID: $BACKEND_PID  |  log: logs/backend.log"
+info "Backend PID: $BACKEND_PID  |  Monitor with: tail -f logs/backend.log"
+
+# STEP 7.1 — Start Celery Worker (Asynchronous Tasks)
+step "Deploying Celery Background Workforce"
+
+celery -A app.celery_worker.celery_app worker \
+    --loglevel=warning \
+    --pool=solo \
+    > "$LOG_DIR/celery.log" 2>&1 &
+
+CELERY_PID=$!
+echo "$CELERY_PID" >> "$PID_FILE"
+info "Celery PID: $CELERY_PID  |  Monitor with: tail -f logs/celery.log"
 
 # Wait for backend to become healthy (up to 15 seconds)
-info "Waiting for backend to be ready..."
+info "Synchronizing with API gateway..."
 for i in $(seq 1 15); do
     if curl -sf http://localhost:8001/health &>/dev/null; then
-        success "Backend is UP  →  http://localhost:8001"
+        success "Backend heartbeat detected  →  http://localhost:8001"
         break
     fi
     if [[ $i -eq 15 ]]; then
-        warn "Backend took > 15s to respond. It may still be starting."
-        warn "Check logs/backend.log if the frontend shows API errors."
+        warn "Backend took > 15s to respond. Check logs/backend.log if the frontend shows errors."
     fi
     sleep 1
 done
