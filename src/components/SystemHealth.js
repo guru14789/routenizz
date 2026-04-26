@@ -57,46 +57,61 @@ export default function SystemHealth() {
     }, [poll]);
 
     const overall = health?.status ?? 'unknown';
-    const overallStyle = overall === 'ok' ? statusColor.ok : overall === 'degraded' ? statusColor.degraded : statusColor.unknown;
     const deps = health?.dependencies ?? {};
 
     return (
-        <div className="sys-health-widget">
-            <div className="sh-header">
-                <div className="sh-title-row">
-                    <span className="sh-label">System Health</span>
-                    <span className="sh-badge" style={{ background: overallStyle.dot + '22', color: overallStyle.dot, border: `1px solid ${overallStyle.dot}44` }}>
-                        <span className="sh-dot" style={{ background: overallStyle.dot }} />
-                        {overallStyle.label}
+        <div className="analytics-card" style={{ padding: '20px', border: '2px solid #000', background: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800 }}>SYSTEM_HEALTH</span>
+                    <span style={{ 
+                        background: overall === 'ok' ? '#000' : '#fff', 
+                        color: overall === 'ok' ? '#fff' : '#000', 
+                        border: '1px solid #000',
+                        padding: '2px 8px',
+                        fontSize: '9px',
+                        fontWeight: 900
+                    }}>
+                        [{overall.toUpperCase()}]
                     </span>
                 </div>
-                <button className="sh-refresh" onClick={poll} disabled={polling} title="Refresh now">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: polling ? 'sh-spin 0.8s linear infinite' : 'none' }}>
+                <button onClick={poll} disabled={polling} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" style={{ animation: polling ? 'spin 1s linear infinite' : 'none' }}>
                         <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.18-3.36"/>
                     </svg>
                 </button>
             </div>
 
-            <div className="sh-deps">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
                 {Object.entries(depKey).map(([key, meta]) => {
                     const rawVal = deps[key];
                     const isOk = rawVal === meta.ok;
-                    const isBad = rawVal === meta.bad;
-                    const s = !rawVal ? statusColor.unknown : isOk ? statusColor.ok : isBad ? statusColor.error : statusColor.degraded;
                     return (
-                        <div className="sh-dep-row" key={key}>
-                            <span className="sh-dep-icon" style={{ color: s.dot }}>{meta.icon}</span>
-                            <span className="sh-dep-name">{meta.label}</span>
-                            <span className="sh-dep-val" style={{ color: s.text }}>{rawVal ?? '—'}</span>
+                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: isOk ? '#000' : '#666' }}>{meta.icon}</span>
+                                <span style={{ fontSize: '10px', fontWeight: 700 }}>{meta.label.toUpperCase()}</span>
+                            </div>
+                            <span style={{ 
+                                fontSize: '10px', 
+                                fontFamily: 'JetBrains Mono', 
+                                fontWeight: 800,
+                                background: isOk ? '#fff' : '#000',
+                                color: isOk ? '#000' : '#fff',
+                                padding: '1px 6px',
+                                border: '1px solid #000'
+                            }}>
+                                {rawVal?.toUpperCase() ?? 'OFFLINE'}
+                            </span>
                         </div>
                     );
                 })}
             </div>
 
             {lastPoll && (
-                <div className="sh-footer">
-                    Last checked: {lastPoll.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    {health?.version && <span className="sh-ver"> · v{health.version}</span>}
+                <div style={{ fontSize: '8px', color: '#666', borderTop: '1px solid #eee', paddingTop: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>LAST_CHECK: {lastPoll.toLocaleTimeString()}</span>
+                    {health?.version && <span>V{health.version}</span>}
                 </div>
             )}
         </div>

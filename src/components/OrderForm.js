@@ -142,21 +142,22 @@ const OrderForm = ({ onAddOrder, drivers = [] }) => {
     };
 
     return (
-        <form className="order-form" onSubmit={handleSubmit}>
-            <h3 style={{ marginBottom: '0.5rem', fontSize: '1.25rem' }}>Add Order</h3>
-            {error && <p style={{ color: '#d92d20', fontSize: '0.85rem', marginBottom: '1rem' }}>{error}</p>}
-            <div className="form-group">
-                <label>Customer Name</label>
+        <form className="order-form" onSubmit={handleSubmit} style={{ background: '#fff', border: 'none', padding: '0', boxShadow: 'none' }}>
+            {error && <p style={{ color: '#ff0000', fontSize: '10px', fontWeight: 800, marginBottom: '16px', background: '#000', color: '#fff', padding: '8px' }}>[ERROR] {error}</p>}
+            
+            <div className="input-field">
+                <label>CUSTOMER_IDENTIFIER</label>
                 <input
                     type="text"
                     value={formData.customer}
                     onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-                    placeholder="e.g. Acme Corp"
+                    placeholder="E.G. ACME_CORP"
                 />
             </div>
-            <div className="form-group">
-                <label>Delivery Address</label>
-                <div className="address-input-wrapper">
+
+            <div className="input-field">
+                <label>DELIVERY_ADDRESS / COORDINATES</label>
+                <div style={{ position: 'relative' }}>
                     <input
                         type="text"
                         value={formData.address}
@@ -167,120 +168,77 @@ const OrderForm = ({ onAddOrder, drivers = [] }) => {
                                 handleSubmit(e);
                             }
                         }}
-                        placeholder="Scan or type delivery address..."
-                        autoFocus
+                        placeholder="SCAN_OR_TYPE_ADDRESS..."
                     />
                     <button 
                         type="button" 
-                        className="scan-icon-btn" 
                         onClick={() => setShowScanner(true)}
-                        title="Scan Barcode for Address"
+                        style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: '#000', border: 'none', color: '#fff', padding: '4px', cursor: 'pointer', display: 'flex' }}
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <line x1="7" y1="7" x2="17" y2="7" />
-                            <line x1="7" y1="12" x2="17" y2="12" />
-                            <line x1="7" y1="17" x2="17" y2="17" />
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="7" x2="17" y2="7"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="17" x2="17" y2="17"/></svg>
                     </button>
                 </div>
-                <small style={{ color: '#667085', fontSize: '0.7rem', marginTop: '0.2rem', display: 'block', opacity: 0.8 }}>
-                    Use standard Lat, Lng order (e.g. 13.082, 80.270) for pinpoint accuracy.
-                </small>
             </div>
 
-            {/* Barcode Scanner Modal */}
-            {showScanner && (
-                <BarcodeScannerModal 
-                    onScan={(data) => {
-                        // Support for composite barcodes (e.g. "Acme Corp|123 Main St, Chennai")
-                        if (data.includes('|')) {
-                            const [name, addr] = data.split('|');
-                            setFormData({ ...formData, customer: name.trim(), address: addr.trim() });
-                        } else {
-                            setFormData({ ...formData, address: data });
-                        }
-                        setShowScanner(false);
-                    }}
-                    onClose={() => setShowScanner(false)}
-                />
-            )}
-            <div className="form-row">
-                <div className="form-group">
-                    <label>Priority</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div className="input-field" style={{ marginBottom: 0 }}>
+                    <label>PRIORITY</label>
                     <select
                         value={formData.priority}
                         onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                        style={{ width: '100%', padding: '12px', border: '1px solid #000', borderRadius: 0, appearance: 'none', background: '#fff' }}
                     >
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
+                        <option value="High">HIGH</option>
+                        <option value="Medium">MEDIUM</option>
+                        <option value="Low">LOW</option>
                     </select>
                 </div>
-                <div className="form-group">
-                    <label>Assign to Fleet (Manager)</label>
+                <div className="input-field" style={{ marginBottom: 0 }}>
+                    <label>FLEET_UNIT</label>
                     <select
                         value={formData.driverId}
                         onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
+                        style={{ width: '100%', padding: '12px', border: '1px solid #000', borderRadius: 0, appearance: 'none', background: '#fff' }}
                     >
-                        <option value="">Unassigned (Open Queue)</option>
+                        <option value="">OPEN_QUEUE</option>
                         {drivers.map(driver => (
                             <option key={driver.id} value={driver.id}>
-                                {driver.name} ({driver.vehicle?.split('(')[0] || 'Fleet Unit'})
+                                {driver.name.toUpperCase()}
                             </option>
                         ))}
                     </select>
                 </div>
             </div>
-            <div className="form-row">
-                <div className="form-group">
-                    <label>Weight (kg)</label>
-                    <input
-                        type="number"
-                        value={formData.weight}
-                        onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                        placeholder="0"
-                    />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                <div className="input-field" style={{ marginBottom: 0 }}>
+                    <label>WT_KG</label>
+                    <input type="number" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} placeholder="0" />
+                </div>
+                <div className="input-field" style={{ marginBottom: 0 }}>
+                    <label>W_CM</label>
+                    <input type="number" value={formData.width} onChange={(e) => setFormData({ ...formData, width: e.target.value })} placeholder="0" />
+                </div>
+                <div className="input-field" style={{ marginBottom: 0 }}>
+                    <label>H_CM</label>
+                    <input type="number" value={formData.height} onChange={(e) => setFormData({ ...formData, height: e.target.value })} placeholder="0" />
+                </div>
+                <div className="input-field" style={{ marginBottom: 0 }}>
+                    <label>B_CM</label>
+                    <input type="number" value={formData.breadth} onChange={(e) => setFormData({ ...formData, breadth: e.target.value })} placeholder="0" />
                 </div>
             </div>
-            <div className="form-row">
-                <div className="form-group">
-                    <label>Width (cm)</label>
-                    <input
-                        type="number"
-                        value={formData.width}
-                        onChange={(e) => setFormData({ ...formData, width: e.target.value })}
-                        placeholder="0"
-                    />
-                </div>
-                <div className="form-group">
-                    <label>Height (cm)</label>
-                    <input
-                        type="number"
-                        value={formData.height}
-                        onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                        placeholder="0"
-                    />
-                </div>
-                <div className="form-group">
-                    <label>Breadth (cm)</label>
-                    <input
-                        type="number"
-                        value={formData.breadth}
-                        onChange={(e) => setFormData({ ...formData, breadth: e.target.value })}
-                        placeholder="0"
-                    />
-                </div>
-            </div>
+
             {showMapPicker && scannedLocation && (
-                <div className="map-picker-overlay">
-                    <div className="map-picker-content">
-                        <div className="picker-header">
-                            <h3>Verify Marking Precision</h3>
-                            <p>Drag the pin to the exact delivery doorway</p>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+                    <div style={{ background: '#fff', border: '2px solid #000', width: '100%', maxWidth: '600px', padding: '24px' }}>
+                        <div style={{ marginBottom: '24px', borderBottom: '2px solid #000', paddingBottom: '16px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 800 }}>VERIFY_MARKING_PRECISION</h3>
+                            <p style={{ fontSize: '10px', color: '#666' }}>CALIBRATE DROP-OFF POINT ON GEOGRAPHIC GRID</p>
                         </div>
-                        <div className="picker-map-container">
-                            <MapContainer center={[scannedLocation.lat, scannedLocation.lng]} zoom={18} style={{ height: '300px', width: '100%' }}>
+                        
+                        <div style={{ height: '300px', background: '#eee', border: '2px solid #000', marginBottom: '24px' }}>
+                            <MapContainer center={[scannedLocation.lat, scannedLocation.lng]} zoom={18} style={{ height: '100%', width: '100%' }}>
                                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                                 <DraggableMarker 
                                     position={[scannedLocation.lat, scannedLocation.lng]} 
@@ -288,37 +246,51 @@ const OrderForm = ({ onAddOrder, drivers = [] }) => {
                                 />
                             </MapContainer>
                         </div>
-                        <div className="picker-footer">
-                            <div className="coord-preview">
-                                {scannedLocation.lat.toFixed(6)}, {scannedLocation.lng.toFixed(6)}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontFamily: 'JetBrains Mono', fontSize: '12px', fontWeight: 800 }}>
+                                LAT: {scannedLocation.lat.toFixed(6)} | LNG: {scannedLocation.lng.toFixed(6)}
                             </div>
-                            <button type="button" className="confirm-loc-btn" onClick={() => {
-                                onAddOrder({
-                                    ...formData,
-                                    id: `ORD${Math.floor(Math.random() * 1000)}`,
-                                    status: 'Pending',
-                                    weight: parseFloat(formData.weight) || 0,
-                                    width: parseFloat(formData.width) || 0,
-                                    height: parseFloat(formData.height) || 0,
-                                    breadth: parseFloat(formData.breadth) || 0,
-                                    lat: scannedLocation.lat,
-                                    lng: scannedLocation.lng
-                                });
-                                setShowMapPicker(false);
-                                setScannedLocation(null);
-                                setFormData({ customer: '', address: '', priority: 'Medium', weight: '', width: '', height: '', breadth: '', driverId: '' });
-                            }}>
-                                Confirm Point & Register
-                            </button>
-                            <button type="button" className="cancel-loc-btn" onClick={() => setShowMapPicker(false)}>Cancel</button>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button type="button" className="btn-ghost" style={{ padding: '12px 24px', fontSize: '11px', border: '2px solid #000' }} onClick={() => setShowMapPicker(false)}>CANCEL</button>
+                                <button type="button" className="btn-obsidian" style={{ padding: '12px 24px', fontSize: '11px' }} onClick={() => {
+                                    onAddOrder({
+                                        ...formData,
+                                        id: `ORD${Math.floor(Math.random() * 1000)}`,
+                                        status: 'Pending',
+                                        weight: parseFloat(formData.weight) || 0,
+                                        width: parseFloat(formData.width) || 0,
+                                        height: parseFloat(formData.height) || 0,
+                                        breadth: parseFloat(formData.breadth) || 0,
+                                        lat: scannedLocation.lat,
+                                        lng: scannedLocation.lng
+                                    });
+                                    setShowMapPicker(false);
+                                    setScannedLocation(null);
+                                    setFormData({ customer: '', address: '', priority: 'Medium', weight: '', width: '', height: '', breadth: '', driverId: '' });
+                                }}>CONFIRM_POINT</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            <button type="submit" className="submit-btn" disabled={isSubmitting}>
-                {isSubmitting ? 'Locating Point...' : 'Pin on Map'}
-            </button>
+            {/* Barcode Scanner Modal Redesign */}
+            {showScanner && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+                    <div style={{ background: '#fff', border: '2px solid #000', width: '100%', maxWidth: '400px', padding: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '2px solid #000', paddingBottom: '16px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 800 }}>SCAN_MANIFEST</h3>
+                            <button onClick={() => setShowScanner(false)} style={{ background: 'none', border: 'none', fontSize: '24px', fontWeight: 800, cursor: 'pointer' }}>×</button>
+                        </div>
+                        <div id="barcode-reader-container" style={{ border: '2px solid #000', background: '#000', marginBottom: '16px' }}></div>
+                        <p style={{ fontSize: '10px', color: '#666', textAlign: 'center' }}>ALIGN BARCODE WITHIN FRAME FOR OPTICAL RECOGNITION</p>
+                    </div>
+                </div>
+            )}
+        </form>
+    );
+};
         </form>
     );
 };

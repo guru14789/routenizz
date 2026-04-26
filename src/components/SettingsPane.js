@@ -41,222 +41,137 @@ const SettingsPane = () => {
     };
 
     return (
-        <div className="settings-pane">
-            <div className="settings-section">
-                <div className="section-header">
-                    <h3>Routing Engine Configuration</h3>
-                    <p>Adjust the parameters used by the core optimizer algorithm.</p>
+        <div className="settings-pane" style={{ padding: '0', background: 'transparent' }}>
+            <div className="analytics-card" style={{ padding: '24px', border: '2px solid #000', background: '#fff', marginBottom: '24px' }}>
+                <div style={{ marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800 }}>ROUTING_ENGINE_PARAMETERS</h3>
+                    <p style={{ fontSize: '10px', color: '#666' }}>CALIBRATE CORE OPTIMIZER ALGORITHMS</p>
                 </div>
-                <div className="settings-grid">
-                    <div className="setting-item">
-                        <label>Optimization Strategy</label>
-                        <select name="algorithm" value={settings.algorithm} onChange={handleChange}>
-                            <option value="fastest">Fastest Route (Time-Optimized)</option>
-                            <option value="shortest">Shortest Route (Distance-Optimized)</option>
-                            <option value="balanced">Balanced (Eco-Friendly)</option>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>OPTIMIZATION_STRATEGY</label>
+                        <select name="algorithm" value={settings.algorithm} onChange={handleChange} style={{ width: '100%', padding: '12px', border: '1px solid #000', borderRadius: 0, appearance: 'none', background: '#fff' }}>
+                            <option value="fastest">FASTEST_ROUTE (TIME)</option>
+                            <option value="shortest">SHORTEST_ROUTE (DISTANCE)</option>
+                            <option value="balanced">BALANCED (ECO)</option>
                         </select>
                     </div>
-                    <div className="setting-item">
-                        <label>Vehicle Profile</label>
-                        <select name="routingProfile" value={settings.routingProfile} onChange={handleChange}>
-                            <option value="car">Standard Delivery Van</option>
-                            <option value="bike">Motorcycle / Scooter</option>
-                            <option value="truck">Heavy Truck</option>
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>VEHICLE_PROFILE</label>
+                        <select name="routingProfile" value={settings.routingProfile} onChange={handleChange} style={{ width: '100%', padding: '12px', border: '1px solid #000', borderRadius: 0, appearance: 'none', background: '#fff' }}>
+                            <option value="car">DELIVERY_VAN</option>
+                            <option value="bike">MOTORCYCLE</option>
+                            <option value="truck">HEAVY_TRUCK</option>
                         </select>
                     </div>
-                    <div className="setting-item">
-                        <label>Max Stops Per Route</label>
-                        <input
-                            type="number"
-                            name="maxStops"
-                            value={settings.maxStops}
-                            onChange={handleChange}
-                            min="1"
-                            max="200"
-                        />
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>MAX_STOPS_LIMIT</label>
+                        <input type="number" name="maxStops" value={settings.maxStops} onChange={handleChange} />
                     </div>
-                    <div className="setting-item">
-                        <label>Fuel Cost Multiplier (per km)</label>
-                        <input
-                            type="number"
-                            name="fuelCost"
-                            value={settings.fuelCost}
-                            onChange={handleChange}
-                            step="0.01"
-                        />
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>FUEL_COST_COEFF</label>
+                        <input type="number" name="fuelCost" value={settings.fuelCost} onChange={handleChange} step="0.01" />
                     </div>
-                    <div className="setting-item">
-                        <label>Avg. Service Time (Min)</label>
-                        <input
-                            type="number"
-                            name="serviceTimeMin"
-                            value={settings.serviceTimeMin}
-                            onChange={handleChange}
-                            min="1"
-                            max="60"
-                        />
-                    </div>
-                    <div className="setting-item">
-                        <label>Default Time Window (Hours)</label>
-                        <input
-                            type="number"
-                            name="defaultTimeWindowHours"
-                            value={settings.defaultTimeWindowHours}
-                            onChange={handleChange}
-                            min="1"
-                            max="24"
-                        />
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>AVG_SERVICE_TIME (MIN)</label>
+                        <input type="number" name="serviceTimeMin" value={settings.serviceTimeMin} onChange={handleChange} />
                     </div>
                 </div>
             </div>
 
-            <div className="settings-section">
-                <div className="section-header">
-                    <h3>Headquarters Location</h3>
-                    <p>Set the default office coordinates for first and last route points.</p>
+            <div className="analytics-card" style={{ padding: '24px', border: '2px solid #000', background: '#fff', marginBottom: '24px' }}>
+                <div style={{ marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800 }}>GEOSPATIAL_ANCHOR (HQ)</h3>
+                    <p style={{ fontSize: '10px', color: '#666' }}>COORDINATE LOCK FOR FLEET DEPARTURE/RETURN</p>
                 </div>
-                <div className="settings-grid">
-                    <div className="setting-item">
-                        <label>Office Latitude</label>
-                        <input
-                            type="number"
-                            name="officeLat"
-                            value={settings.officeLat}
-                            onChange={(e) => setSettings({ ...settings, officeLat: parseFloat(e.target.value) })}
-                            step="0.0001"
-                        />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>LATITUDE_COORD</label>
+                        <input type="number" name="officeLat" value={settings.officeLat} onChange={(e) => setSettings({ ...settings, officeLat: parseFloat(e.target.value) })} step="0.0001" />
                     </div>
-                    <div className="setting-item">
-                        <label>Office Longitude</label>
-                        <input
-                            type="number"
-                            name="officeLng"
-                            value={settings.officeLng}
-                            onChange={(e) => setSettings({ ...settings, officeLng: parseFloat(e.target.value) })}
-                            step="0.0001"
-                        />
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>LONGITUDE_COORD</label>
+                        <input type="number" name="officeLng" value={settings.officeLng} onChange={(e) => setSettings({ ...settings, officeLng: parseFloat(e.target.value) })} step="0.0001" />
                     </div>
                 </div>
             </div>
 
-            <div className="settings-section">
-                <div className="section-header">
-                    <h3>Platform Operations</h3>
-                    <p>Control fleet tracking and automated dispatch behaviors.</p>
+            <div className="analytics-card" style={{ padding: '24px', border: '2px solid #000', background: '#fff', marginBottom: '24px' }}>
+                <div style={{ marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800 }}>PLATFORM_OPERATIONS</h3>
                 </div>
 
-                <div className="toggle-item">
-                    <div className="toggle-info">
-                        <span>Automated Dispatch</span>
-                        <p>Automatically push optimized routes to driver devices.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #eee' }}>
+                    <div>
+                        <div style={{ fontSize: '10px', fontWeight: 800 }}>AUTOMATED_DISPATCH</div>
+                        <div style={{ fontSize: '9px', color: '#666' }}>SYNC ROUTES TO DRIVER TERMINALS UPON CALCULATION</div>
                     </div>
-                    <label className="switch">
-                        <input
-                            type="checkbox"
-                            name="autoDispatch"
-                            checked={settings.autoDispatch}
-                            onChange={handleChange}
-                        />
-                        <span className="slider"></span>
-                    </label>
+                    <input type="checkbox" name="autoDispatch" checked={settings.autoDispatch} onChange={handleChange} style={{ width: '20px', height: '20px', accentColor: '#000' }} />
                 </div>
 
-                <div className="toggle-item" style={{ borderTop: '1px solid #f5f5f5' }}>
-                    <div className="toggle-info">
-                        <span>High-Frequency Telemetry</span>
-                        <p>Receive GPS updates from drivers every 5 seconds instead of 30.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid #eee' }}>
+                    <div>
+                        <div style={{ fontSize: '10px', fontWeight: 800 }}>HI_FREQ_TELEMETRY</div>
+                        <div style={{ fontSize: '9px', color: '#666' }}>5S GPS POLLING CYCLE FOR REAL-TIME PRECISION</div>
                     </div>
-                    <label className="switch">
-                        <input
-                            type="checkbox"
-                            name="liveTracking"
-                            checked={settings.liveTracking}
-                            onChange={handleChange}
-                        />
-                        <span className="slider"></span>
-                    </label>
+                    <input type="checkbox" name="liveTracking" checked={settings.liveTracking} onChange={handleChange} style={{ width: '20px', height: '20px', accentColor: '#000' }} />
                 </div>
 
-                <div className="toggle-item" style={{ borderTop: '1px solid #f5f5f5' }}>
-                    <div className="toggle-info">
-                        <span>Critical Alerts</span>
-                        <p>Receive system notifications for off-route behavior and delays.</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0' }}>
+                    <div>
+                        <div style={{ fontSize: '10px', fontWeight: 800 }}>CRITICAL_NOTIFICATIONS</div>
+                        <div style={{ fontSize: '9px', color: '#666' }}>ALERTS FOR OFF-ROUTE EVENTS AND DELAYS</div>
                     </div>
-                    <label className="switch">
-                        <input
-                            type="checkbox"
-                            name="notifications"
-                            checked={settings.notifications}
-                            onChange={handleChange}
-                        />
-                        <span className="slider"></span>
-                    </label>
+                    <input type="checkbox" name="notifications" checked={settings.notifications} onChange={handleChange} style={{ width: '20px', height: '20px', accentColor: '#000' }} />
                 </div>
             </div>
 
-            <div className="settings-section" style={{ borderTop: '2px dashed #e2e8f0', paddingTop: '2rem', marginTop: '2rem' }}>
-                <div className="section-header">
-                    <h3>Database Synchronization</h3>
-                    <p>Populate your fresh Firebase environment with demonstration assets.</p>
+            <div className="analytics-card" style={{ padding: '24px', border: '2px solid #000', background: '#fff', marginBottom: '80px' }}>
+                <div style={{ marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800 }}>DATABASE_SYNCHRONIZATION</h3>
+                    <p style={{ fontSize: '10px', color: '#666' }}>POPULATE ENVIRONMENT WITH DEMONSTRATION ASSETS</p>
                 </div>
-                <div className="seed-action-box" style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0' }}>
-                    <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
-                        This will add 3 drivers and 5 orders to your active Firebase project to demonstrate the VRP engine and live telemetry features.
-                    </div>
-                    <button 
-                        className="seed-btn" 
-                        disabled={isSeeding}
-                        onClick={async () => {
-                            setIsSeeding(true);
-                            try {
-                                const demoDrivers = [
-                                    { id: 'DRV-771', name: 'Arun K.', capacity: 15, fuelType: 'Diesel', consumption: 10.5, hourlyWage: 250, status: 'Active' },
-                                    { id: 'DRV-882', name: 'Varun S.', capacity: 12, fuelType: 'Electric', consumption: 15.2, hourlyWage: 220, status: 'Active' },
-                                    { id: 'DRV-993', name: 'Meera R.', capacity: 20, fuelType: 'CNG', consumption: 12.0, hourlyWage: 280, status: 'Active' }
-                                ];
-                                
-                                const demoOrders = [
-                                    { customer: 'Relay Corp', address: 'Mount Road', lat: 13.0645, lng: 80.2456, weight: 2, priority: 'High', status: 'Pending', timeWindowEnd: 720 },
-                                    { customer: 'Zenith Logistics', address: 'Velachery Main Rd', lat: 12.9815, lng: 80.2185, weight: 3, priority: 'Medium', status: 'Pending', timeWindowEnd: 900 },
-                                    { customer: 'EcoExpress', address: 'OMR Road', lat: 12.9228, lng: 80.2312, weight: 1, priority: 'Low', status: 'Pending', timeWindowEnd: 1080 },
-                                    { customer: 'North Cargo', address: 'Anna Nagar', lat: 13.0850, lng: 80.2101, weight: 5, priority: 'High', status: 'Pending', timeWindowEnd: 600 },
-                                    { customer: 'Swift Deliveries', address: 'T. Nagar', lat: 13.0418, lng: 80.2341, weight: 2, priority: 'Medium', status: 'Pending', timeWindowEnd: 1200 }
-                                ];
-
-                                await Promise.all([
-                                    ...demoDrivers.map(d => addDriver(d)),
-                                    ...demoOrders.map(o => addOrder(o))
-                                ]);
-                                
-                                alert("Firebase Synchronization Complete! Fleet and Queue populated.");
-                            } catch (err) {
-                                console.error(err);
-                                alert("Sync failed: " + err.message);
-                            } finally {
-                                setIsSeeding(false);
-                            }
-                        }}
-                        style={{
-                            padding: '0.75rem 1.5rem',
-                            background: isSeeding ? '#94a3b8' : '#0f172a',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer',
-                            fontWeight: '600'
-                        }}
-                    >
-                        {isSeeding ? 'SYNCING...' : 'SEED DEMO DATA'}
-                    </button>
-                </div>
-            </div>
-
-            <div className="save-settings-bar">
-                <p>Unsaved changes to algorithmic parameters</p>
-                <button className="save-btn" onClick={handleSave}>
-                    APPLY CONFIGURATION
+                <button 
+                    disabled={isSeeding}
+                    onClick={async () => {
+                        setIsSeeding(true);
+                        try {
+                            const demoDrivers = [
+                                { id: 'DRV-771', name: 'ARUN K.', capacity: 15, fuelType: 'DIESEL', consumption: 10.5, hourlyWage: 250, status: 'ACTIVE' },
+                                { id: 'DRV-882', name: 'VARUN S.', capacity: 12, fuelType: 'ELECTRIC', consumption: 15.2, hourlyWage: 220, status: 'ACTIVE' },
+                                { id: 'DRV-993', name: 'MEERA R.', capacity: 20, fuelType: 'CNG', consumption: 12.0, hourlyWage: 280, status: 'ACTIVE' }
+                            ];
+                            const demoOrders = [
+                                { customer: 'RELAY_CORP', address: 'MOUNT ROAD', lat: 13.0645, lng: 80.2456, weight: 2, priority: 'HIGH', status: 'PENDING', timeWindowEnd: 720 },
+                                { customer: 'ZENITH_LOGISTICS', address: 'VELACHERY MAIN RD', lat: 12.9815, lng: 80.2185, weight: 3, priority: 'MEDIUM', status: 'PENDING', timeWindowEnd: 900 },
+                                { customer: 'ECO_EXPRESS', address: 'OMR ROAD', lat: 12.9228, lng: 80.2312, weight: 1, priority: 'LOW', status: 'PENDING', timeWindowEnd: 1080 },
+                                { customer: 'NORTH_CARGO', address: 'ANNA NAGAR', lat: 13.0850, lng: 80.2101, weight: 5, priority: 'HIGH', status: 'PENDING', timeWindowEnd: 600 },
+                                { customer: 'SWIFT_DELIVERIES', address: 'T. NAGAR', lat: 13.0418, lng: 80.2341, weight: 2, priority: 'MEDIUM', status: 'PENDING', timeWindowEnd: 1200 }
+                            ];
+                            await Promise.all([...demoDrivers.map(d => addDriver(d)), ...demoOrders.map(o => addOrder(o))]);
+                            alert("FIREBASE_SYNC_COMPLETE");
+                        } catch (err) {
+                            alert("SYNC_FAILURE: " + err.message);
+                        } finally {
+                            setIsSeeding(false);
+                        }
+                    }}
+                    className="btn-ghost"
+                    style={{ width: '100%', padding: '16px', fontSize: '11px', border: '2px solid #000' }}
+                >
+                    {isSeeding ? 'SYNCING_METADATA...' : 'SEED_DEMO_DATA_STRUCTURES'}
                 </button>
             </div>
+
+            <div style={{ position: 'fixed', bottom: 0, left: '260px', right: 0, background: '#000', color: '#fff', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 1000 }}>
+                <div style={{ fontSize: '10px', fontWeight: 800 }}>UNSAVED_CONFIGURATION_CHANGES</div>
+                <button className="btn-obsidian" onClick={handleSave} style={{ background: '#fff', color: '#000', padding: '12px 32px', fontSize: '11px' }}>
+                    APPLY_GLOBAL_CONFIG
+                </button>
+            </div>
+        </div>
+    );
+};
         </div>
     );
 };

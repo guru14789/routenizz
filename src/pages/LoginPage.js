@@ -59,60 +59,63 @@ const LoginPage = ({ onLogin, mode = 'login' }) => {
         <div className="login-screen">
             <div className="login-side-pane">
                 <div className="pane-content">
-                    <div className="brand-badge">PREMIUM LOGISTICS</div>
+                    <div className="brand-badge">LOGISTICS TERMINAL</div>
                     <div className="brand-logo">
                         <span className="logo-symbol">R</span>
                         <span className="logo-text">Routenizz</span>
                     </div>
                     <div className="brand-tagline">
-                        Precision navigation for the modern logistics industry.
-                        Optimize your journey with state-of-the-art routing AI.
+                        PRECISION NAVIGATION. 
+                        INDUSTRIAL RELIABILITY.
+                        AI-OPTIMIZED FREIGHT.
                     </div>
                 </div>
                 <div className="pane-footer">
-                    © 2026 Routenizz Inc. All rights reserved.
+                    SYSTEM VERSION: 2.1.0-ORION
                 </div>
             </div>
 
             <div className="login-form-pane">
                 <div className="form-container">
                     <div className="form-header">
-                        <h2>{isLogin ? 'Sign In' : 'Create Account'}</h2>
-                        <p>{isLogin ? 'Enter your credentials to access your dashboard' : 'Join our network of precision logistics'}</p>
+                        <h2>{isLogin ? 'SIGN IN' : 'CREATE ACCOUNT'}</h2>
+                        <p>{isLogin ? 'AUTHENTICATE FOR TERMINAL ACCESS' : 'INITIALIZE NEW FLEET ACCOUNT'}</p>
                     </div>
 
-                    <div className="role-toggle">
+                    <div className="role-toggle" style={{ marginBottom: '2rem', display: 'flex', border: '2px solid #000', padding: '2px' }}>
                         <button
                             className={role === 'driver' ? 'active' : ''}
                             onClick={() => setRole('driver')}
+                            style={{ flex: 1, padding: '8px', border: 'none', background: role === 'driver' ? '#000' : '#fff', color: role === 'driver' ? '#fff' : '#000', cursor: 'pointer', fontWeight: 800, fontSize: '10px' }}
                         >
-                            Driver
+                            DRIVER
                         </button>
                         <button
                             className={role === 'admin' ? 'active' : ''}
                             onClick={() => setRole('admin')}
+                            style={{ flex: 1, padding: '8px', border: 'none', background: role === 'admin' ? '#000' : '#fff', color: role === 'admin' ? '#fff' : '#000', cursor: 'pointer', fontWeight: 800, fontSize: '10px' }}
                         >
-                            Administrator
+                            ADMIN
                         </button>
                     </div>
 
-                    {errorMsg && <div className="auth-error" style={{ color: '#ff4d4d', fontSize: '0.85rem', marginBottom: '1rem', background: '#fff1f1', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #ffcccc' }}>{errorMsg}</div>}
+                    {errorMsg && <div className="auth-error" style={{ color: '#fff', fontSize: '10px', marginBottom: '1rem', background: '#000', padding: '12px', border: '2px solid #ff0000' }}>[ERROR] {errorMsg}</div>}
 
                     <form onSubmit={handleSubmit} className="premium-form">
                         <div className="input-field">
-                            <label>Email Address</label>
+                            <label>IDENTIFIER / EMAIL</label>
                             <input
                                 type="email"
-                                placeholder="name@company.com"
+                                placeholder="name@terminal.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
                         <div className="input-field">
-                            <div className="label-row">
-                                <label>Password</label>
-                                {isLogin && <a href="#forgot" className="forgot-link">Forgot password?</a>}
+                            <div className="label-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <label>SECURITY KEY</label>
+                                {isLogin && <a href="#forgot" style={{ fontSize: '10px', color: '#000', fontWeight: 700 }}>RECOVERY</a>}
                             </div>
                             <input
                                 type="password"
@@ -123,14 +126,17 @@ const LoginPage = ({ onLogin, mode = 'login' }) => {
                             />
                         </div>
                         <button type="submit" className="prime-login-btn" disabled={isLoading}>
-                            {isLoading ? 'Processing...' : (isLogin ? `Continue as ${role === 'driver' ? 'Driver' : 'Admin'}` : 'Get Started')}
+                            {isLoading ? 'EXECUTING...' : (isLogin ? `CONNECT AS ${role.toUpperCase()}` : 'INITIALIZE')}
                         </button>
                     </form>
 
-                    <div className="switch-auth">
-                        <span>{isLogin ? "Don't have an account?" : "Already have an account?"}</span>
-                        <button onClick={() => navigate(isLogin ? '/signup' : '/login')}>
-                            {isLogin ? "Sign up now" : "Go to login"}
+                    <div className="switch-auth" style={{ marginTop: '24px', fontSize: '11px', textAlign: 'center' }}>
+                        <span>{isLogin ? "NO ACCOUNT?" : "EXISTING ACCOUNT?"}</span>
+                        <button 
+                            onClick={() => navigate(isLogin ? '/signup' : '/login')}
+                            style={{ background: 'none', border: 'none', fontWeight: 800, cursor: 'pointer', marginLeft: '8px', textDecoration: 'underline' }}
+                        >
+                            {isLogin ? "REGISTER NOW" : "LOGIN"}
                         </button>
                     </div>
                 </div>

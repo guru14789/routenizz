@@ -94,128 +94,96 @@ const SmartRouter = () => {
     const polyCoords = getPolylineCoords();
 
     return (
-        <div className="smart-router-container">
-            <div className="sr-sidebar">
-                <div className="sr-header">
-                    <h2>AI-Driven Router</h2>
-                    <p>Optimizing for real-time congestion and network structural density.</p>
+        <div className="smart-router-container" style={{ background: '#fff', height: 'calc(100vh - 120px)' }}>
+            <div className="sr-sidebar" style={{ width: '400px', borderRight: '2px solid #000', padding: '24px', background: '#fff', overflowY: 'auto' }}>
+                <div style={{ marginBottom: '24px', borderBottom: '2px solid #000', paddingBottom: '16px' }}>
+                    <h2 style={{ fontSize: '18px', fontWeight: 800 }}>AI_ROUTING_TERMINAL</h2>
+                    <p style={{ fontSize: '10px', color: '#666' }}>OPTIMIZING FOR REAL-TIME CONGESTION DENSITY</p>
                 </div>
 
-                <div className="sr-inputs">
-                    <div className="input-group">
-                        <label>Origin (Lat, Lng)</label>
-                        <div className="input-row">
-                            <input
-                                type="number" step="0.0001"
-                                value={origin.lat}
-                                onChange={e => setOrigin({ ...origin, lat: parseFloat(e.target.value) })}
-                            />
-                            <input
-                                type="number" step="0.0001"
-                                value={origin.lng}
-                                onChange={e => setOrigin({ ...origin, lng: parseFloat(e.target.value) })}
-                            />
+                <div className="sr-inputs" style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>ORIGIN_COORDINATES (LAT/LNG)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <input type="number" step="0.0001" value={origin.lat} onChange={e => setOrigin({ ...origin, lat: parseFloat(e.target.value) })} />
+                            <input type="number" step="0.0001" value={origin.lng} onChange={e => setOrigin({ ...origin, lng: parseFloat(e.target.value) })} />
                         </div>
                     </div>
 
-                    <div className="input-group">
-                        <label>Destination (Lat, Lng)</label>
-                        <div className="input-row">
-                            <input
-                                type="number" step="0.0001"
-                                value={destination.lat}
-                                onChange={e => setDestination({ ...destination, lat: parseFloat(e.target.value) })}
-                            />
-                            <input
-                                type="number" step="0.0001"
-                                value={destination.lng}
-                                onChange={e => setDestination({ ...destination, lng: parseFloat(e.target.value) })}
-                            />
+                    <div className="input-field" style={{ marginBottom: 0 }}>
+                        <label>DESTINATION_COORDINATES (LAT/LNG)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <input type="number" step="0.0001" value={destination.lat} onChange={e => setDestination({ ...destination, lat: parseFloat(e.target.value) })} />
+                            <input type="number" step="0.0001" value={destination.lng} onChange={e => setDestination({ ...destination, lng: parseFloat(e.target.value) })} />
                         </div>
                     </div>
 
                     <button
-                        className={`sr-action-btn ${isLoading ? 'is-loading' : ''}`}
+                        className="btn-obsidian"
                         onClick={handleRunOptimization}
                         disabled={isLoading || isSameLocation}
-                        title={isSameLocation ? 'Origin and destination must be different' : ''}
+                        style={{ padding: '16px', fontSize: '12px' }}
                     >
-                        {isLoading ? 'ANALYZING TRAFFIC...' : 'GET OPTIMUM ROUTE'}
+                        {isLoading ? 'ANALYZING_TRAFFIC_NETWORK...' : 'EXECUTE_OPTIMIZATION'}
                     </button>
                 </div>
 
-                {error && <div className="sr-error">{error}</div>}
+                {error && <div style={{ background: '#000', color: '#fff', padding: '12px', fontSize: '10px', fontFamily: 'JetBrains Mono', marginBottom: '24px' }}>[ERR] {error}</div>}
 
                 {result && (
-                    <div className="sr-results">
-                        <div className="result-metric">
-                            <span className="label">ML-PREDICTED ETA</span>
-                            <span className="value primary">{formatTime(result.predicted_eta_seconds)}</span>
-                        </div>
-                        <div className="result-metric">
-                            <span className="label">DISTANCE</span>
-                            <span className="value">{result.distance_km.toFixed(1)} KM</span>
+                    <div className="sr-results" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div className="analytics-card" style={{ padding: '16px', border: '2px solid #000', background: '#fff' }}>
+                                <div style={{ fontSize: '9px', fontWeight: 800, color: '#666', marginBottom: '8px' }}>ML_PREDICTED_ETA</div>
+                                <div style={{ fontSize: '18px', fontWeight: 900 }}>{formatTime(result.predicted_eta_seconds)}</div>
+                            </div>
+                            <div className="analytics-card" style={{ padding: '16px', border: '2px solid #000', background: '#fff' }}>
+                                <div style={{ fontSize: '9px', fontWeight: 800, color: '#666', marginBottom: '8px' }}>TOTAL_DISTANCE</div>
+                                <div style={{ fontSize: '18px', fontWeight: 900 }}>{result.distance_km.toFixed(1)} KM</div>
+                            </div>
                         </div>
 
-                        <div className="congestion-analysis">
-                            <span className="label">ROUTE EFFICIENCY GAIN</span>
-                            <div className="chart-mini">
-                                <ResponsiveContainer width="100%" height={80}>
+                        <div className="analytics-card" style={{ padding: '16px', border: '2px solid #000', background: '#fff' }}>
+                            <div style={{ fontSize: '9px', fontWeight: 800, color: '#666', marginBottom: '16px' }}>EFFICIENCY_GAIN_ANALYSIS</div>
+                            <div style={{ height: '80px', filter: 'grayscale(1)' }}>
+                                <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={[
                                         { name: 'Base', val: 1.0 },
                                         { name: 'Optimized', val: Math.max(0.1, 1.0 - (result.optimization_score || 0) / 100) },
                                     ]}>
-                                        <Bar dataKey="val">
+                                        <Bar dataKey="val" fill="#000">
                                             {[1.0, Math.max(0.1, 1.0 - (result.optimization_score || 0) / 100)].map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={index === 0 ? '#f43f5e' : '#6366f1'} />
+                                                <Cell key={`cell-${index}`} fill={index === 0 ? '#666' : '#000'} />
                                             ))}
                                         </Bar>
-                                        <Tooltip hideCursor formatter={(v) => [`${(v * 100).toFixed(0)}%`, 'Relative Cost']} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
-                            {result.optimization_score > 0
-                                ? <p className="sr-note">ML engine achieved <strong>{result.optimization_score.toFixed(1)}% improvement</strong> over the baseline route.</p>
-                                : <p className="sr-note">Route already near-optimal. No significant improvement detected.</p>
-                            }
+                            <p style={{ fontSize: '10px', fontWeight: 700, marginTop: '12px' }}>
+                                ENGINE ACHIEVED {result.optimization_score.toFixed(1)}% IMPROVEMENT OVER BASELINE.
+                            </p>
                         </div>
 
-                        <div className="ml-badge-premium">
-                            <div className="badge-core">
-                                <span className="pulse"></span>
-                                TR-V2 LIGHTGBM ACTIVE
+                        <div style={{ background: '#000', color: '#fff', padding: '16px', border: '2px solid #000' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 900 }}>TR-V2_LIGHTGBM_ACTIVE</span>
+                                <span style={{ fontSize: '10px', fontWeight: 900 }}>CONF_LVL: 94%</span>
                             </div>
-                            <div className="confidence-meter">
-                                <span>CONFIDENCE</span>
-                                <div className="meter-bar">
-                                    <div className="meter-fill" style={{ width: '94%' }}></div>
-                                </div>
-                                <span className="meter-val">94%</span>
+                            <div style={{ height: '4px', background: '#333', position: 'relative' }}>
+                                <div style={{ width: '94%', height: '100%', background: '#fff' }}></div>
                             </div>
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="sr-map-viewport">
-                <MapContainer
-                    center={[11.5, 78.5]}
-                    zoom={7}
-                    style={{ height: '100%', width: '100%' }}
-                    zoomControl={false}
-                >
+            <div className="sr-map-viewport" style={{ flex: 1, position: 'relative' }}>
+                <MapContainer center={[origin.lat, origin.lng]} zoom={12} style={{ height: '100%', width: '100%' }} zoomControl={false}>
                     <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
                     <MapController coords={polyCoords.length > 0 ? polyCoords : [[origin.lat, origin.lng], [destination.lat, destination.lng]]} />
-
                     <Marker position={[origin.lat, origin.lng]} />
                     <Marker position={[destination.lat, destination.lng]} />
-
-                    {polyCoords.length > 0 && (
-                        <Polyline
-                            positions={polyCoords}
-                            pathOptions={{ color: '#000000', weight: 4, opacity: 0.8 }}
-                        />
-                    )}
+                    {polyCoords.length > 0 && <Polyline positions={polyCoords} pathOptions={{ color: '#000', weight: 4, opacity: 0.8 }} />}
                 </MapContainer>
             </div>
         </div>

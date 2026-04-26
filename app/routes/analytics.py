@@ -99,3 +99,22 @@ async def get_engine_status(current_user: dict = Depends(require_admin)):
         "last_retrained": "2026-03-12",
         "r2_score": r2
     }
+
+@router.get("/efficiency-gap")
+async def get_efficiency_gap(current_user: dict = Depends(require_admin)):
+    """
+    Calculates the 'Orion Gap': The variance between planned and actual segment durations.
+    Used to identify systemic routing inefficiencies or driver performance issues.
+    """
+    # Simulated response reflecting the performance of the last 100 trips
+    # In production, this would query the TelemetryLog table
+    return {
+        "mean_absolute_error_sec": 42.5,
+        "efficiency_index": 0.96, # 1.0 is perfect alignment
+        "gap_breakdown": [
+            {"category": "High Traffic", "gap": 15.2},
+            {"category": "School Zones", "gap": 8.4},
+            {"category": "Industrial", "gap": 2.1},
+            {"category": "Residential", "gap": -1.5} # Faster than predicted
+        ]
+    }

@@ -179,58 +179,25 @@ const DriverView = ({
 
     if (deliveryRoute.length === 0) {
         return (
-            <div className="driver-redesigned-screen empty-state-view">
-                {/* Animated Background Layer */}
-                <div className="premium-mesh-bg"></div>
-                
-                {/* Glassmorphic Command Terminal */}
-                <div className="glass-terminal">
-                    <div className="terminal-header">
-                        <div className="logo-orb">
-                            <span className="logo-letter">R</span>
-                            <div className="orb-glow"></div>
-                        </div>
-                        <div className="terminal-meta">
-                            <span className="version">V2.4.0 ENCRYPTION ACTIVE</span>
-                            <span className="driver-tag">ID: {driverId || 'FLEET-UNASSIGNED'}</span>
-                        </div>
+            <div className="driver-redesigned-screen empty-state-view" style={{ background: '#fff', padding: '32px' }}>
+                <div className="analytics-card" style={{ maxWidth: '400px', width: '100%', margin: '0 auto', border: '2px solid #000' }}>
+                    <div className="feed-header">
+                        <span className="feed-title">TERMINAL_ID: {driverId || 'FLEET-UNASSIGNED'}</span>
                     </div>
-
-                    <div className="terminal-body">
-                        <div className="holographic-loader">
-                            <div className="ring outer"></div>
-                            <div className="ring middle"></div>
-                            <div className="ring inner"></div>
-                            <div className="status-dot"></div>
-                        </div>
+                    <div style={{ padding: '32px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '48px', fontWeight: 900, marginBottom: '16px' }}>R</div>
+                        <h1 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '8px' }}>AWAITING DISPATCH</h1>
+                        <p style={{ fontSize: '10px', color: '#666', marginBottom: '24px' }}>SYNCHRONIZING WITH GLOBAL CONTROL CENTER...</p>
                         
-                        <div className="message-stack">
-                            <h1 className="hero-status">Awaiting Dispatch</h1>
-                            <p className="sub-status">Synchronizing with Global Control Center...</p>
-                            <div className="typing-log">
-                                <span>{">"} INITIALIZING SECURITY HANDSHAKE...</span>
-                                <span>{">"} GEOPOSITIONING CALIBRATED</span>
-                                <span>{">"} LISTENING FOR OPTIMIZED PAYLOAD</span>
-                            </div>
+                        <div style={{ textAlign: 'left', background: '#000', color: '#fff', padding: '16px', fontSize: '10px', fontFamily: 'JetBrains Mono', marginBottom: '24px' }}>
+                            <div>{">"} INITIALIZING HANDSHAKE...</div>
+                            <div>{">"} GEOPOSITIONING CALIBRATED</div>
+                            <div>{">"} LISTENING FOR PAYLOAD</div>
                         </div>
-                    </div>
 
-                    <div className="terminal-actions">
-                        <button className="btn-premium pulse" onClick={onToggleRole}>
-                            <div className="btn-inner">
-                                <span className="btn-text">ADMIN OVERRIDE</span>
-                                <div className="btn-glare"></div>
-                            </div>
+                        <button className="prime-login-btn" onClick={onToggleRole} style={{ width: '100%' }}>
+                            ADMIN OVERRIDE
                         </button>
-                        <button className="btn-ghost" onClick={onLogout}>SYSTEM LOGOUT</button>
-                    </div>
-                    
-                    <div className="terminal-footer">
-                        <div className="telemetry-bar">
-                            <div className="tele-item">SIGNAL: 98%</div>
-                            <div className="tele-item">LATENCY: 14ms</div>
-                            <div className="tele-item">UPTIME: 99.9%</div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -238,36 +205,25 @@ const DriverView = ({
     }
 
     return (
-        <div className={`driver-redesigned-screen ${isNavigating ? 'nav-mode' : ''}`}>
-            {/* Top Bar - Status Indicators */}
-            <div className="driver-status-bar">
-                <div className="branding-mini">
-                    <span className="mini-logo">R</span>
-                    <div
-                        className="driver-telemetry-text"
-                        onClick={onCycleFleet}
-                        style={onCycleFleet ? { cursor: 'pointer', transition: 'opacity 0.2s' } : {}}
-                    >
-                        <span className="driver-id">{driverId || route[0]?.driverId || 'D00-SYS'}</span>
-                        <div className="gps-status-line">
-                            <span className={`gps-pulse ${gpsStatus?.toLowerCase().replace(' ', '-')}`}></span>
-                            <span className="gps-text">{gpsStatus?.toUpperCase() || 'GPS ACTIVE'}</span>
-                            <span className="gps-accuracy-hint" title="High Precision Mode">±5m</span>
-                        </div>
+        <div className={`driver-redesigned-screen ${isNavigating ? 'nav-mode' : ''}`} style={{ background: '#fff', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="viewport-header" style={{ height: 'auto', padding: '12px 24px', borderBottom: '2px solid #000', background: '#fff' }}>
+                <div className="branding-mini" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="logo-box" style={{ width: '24px', height: '24px', fontSize: '14px' }}>R</div>
+                    <div style={{ fontSize: '10px', fontWeight: 800 }}>
+                        {driverId || 'D00-SYS'} / {gpsStatus?.toUpperCase() || 'GPS ACTIVE'}
                     </div>
                 </div>
-                <div className="system-stats">
-                    <div className="stat-pill"><DriverIcons.Connectivity /> 5G</div>
-                    <div className={`stat-pill traffic ${trafficMultiplier > 1.8 ? 'heavy' : (trafficMultiplier > 1.3 ? 'moderate' : 'clear')}`}>
-                        <span className="traffic-val">{trafficMultiplier.toFixed(1)}x</span>
-                        <span className="traffic-label">TRAFFIC</span>
+                <div className="system-stats" style={{ display: 'flex', gap: '16px' }}>
+                    <div className="status-chip" style={{ background: '#000', color: '#fff', padding: '2px 8px', fontSize: '9px' }}>
+                        TRAFFIC: {trafficMultiplier.toFixed(1)}x
                     </div>
-                    <div className="stat-pill fuel"><DriverIcons.Fuel /> {fuelPercent}%</div>
+                    <div className="status-chip" style={{ background: '#000', color: '#fff', padding: '2px 8px', fontSize: '9px' }}>
+                        FUEL: {fuelPercent}%
+                    </div>
                 </div>
             </div>
 
-            {/* Background Map View */}
-            <div className="driver-viewport-map">
+            <div className="driver-viewport-map" style={{ flex: 1, background: '#eee', position: 'relative' }}>
                 <LiveTrackingMap
                     routeCoordinates={extractedRouteCoordinates}
                     currentStopIndex={currentStopIndex}
@@ -275,108 +231,87 @@ const DriverView = ({
                     onNavUpdate={setNavStep}
                     liveLocation={liveLocation}
                     stops={route}
-                    color={getFleetColor(driverId || route[0]?.driverId)}
+                    color="#000"
                 />
+
+                {isNavigating && !isFinished && (
+                    <div className="analytics-card" style={{ position: 'absolute', top: '16px', left: '16px', right: '16px', border: '2px solid #000', background: '#fff', padding: '16px', zIndex: 1000 }}>
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                            <div style={{ width: '32px', height: '32px', background: '#000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {navStep.instruction.toLowerCase().includes('left') ? <DriverIcons.ArrowLeft /> :
+                                    navStep.instruction.toLowerCase().includes('right') ? <DriverIcons.ArrowRight /> :
+                                        <DriverIcons.ArrowStraight />}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '14px', fontWeight: 800 }}>{navStep.instruction || "FOLLOW OPTIMIZED PATH"}</div>
+                                <div style={{ fontSize: '10px', color: '#666' }}>{navStep.distance >= 1000 ? `${(navStep.distance / 1000).toFixed(1)} km` : `${Math.round(navStep.distance)} m`} REMAINING</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Navigation Instruction Overlay (Floating Top) */}
-            {isNavigating && !isFinished && (
-                <div className="floating-nav-panel">
-                    <div className="nav-turn-indicator">
-                        {navStep.instruction.toLowerCase().includes('left') ? <DriverIcons.ArrowLeft /> :
-                            navStep.instruction.toLowerCase().includes('right') ? <DriverIcons.ArrowRight /> :
-                                <DriverIcons.ArrowStraight />}
+            <div className="floating-ops-container" style={{ padding: '16px', borderTop: '2px solid #000', background: '#fff' }}>
+                <div className="ops-header" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="status-chip" style={{ background: '#000', color: '#fff', padding: '4px 12px', fontSize: '10px', fontWeight: 800 }}>
+                        STOP {effectiveIndex + 1} / {deliveryRoute.length}
                     </div>
-                    <div className="nav-text">
-                        <span className="dist">
-                            {navStep.distance < 20 ? '✓' : (navStep.distance >= 1000
-                                ? `${(navStep.distance / 1000).toFixed(1)} km`
-                                : `${Math.round(navStep.distance)} m`)}
-                        </span>
-                        <h2>{navStep.distance < 20 ? 'You have arrived!' : (navStep.instruction || "Following Optimized Path")}</h2>
-                        <div className="nav-next-stop-hint">
-                            <span className="label">DESTINATION:</span>
-                            <span className="value" style={{ textTransform: 'capitalize' }}>
-                                {currentStop?.customer || "Next Gateway"}
-                            </span>
-                        </div>
+                    <div style={{ flex: 1, height: '4px', background: '#eee', margin: '0 16px', position: 'relative' }}>
+                        <div style={{ width: `${progress}%`, height: '100%', background: '#000' }}></div>
                     </div>
                 </div>
-            )}
 
-            {/* Floating Operations Panel (Bottom) */}
-            <div className="floating-ops-container">
-                <div className={`ops-card ${isPanelExpanded ? 'expanded' : 'collapsed'}`}>
-                    <div className="ops-drag-handle" onClick={() => setIsPanelExpanded(!isPanelExpanded)}>
-                        <div className="drag-pill"></div>
-                    </div>
-                    <div className="ops-header">
-                        <div className="stop-badge">STOP {effectiveIndex + 1} / {deliveryRoute.length}</div>
-                        <div className="progress-mini">
-                            <div className="bar" style={{ width: `${progress}%` }}></div>
+                <div className="main-info" style={{ marginBottom: '16px' }}>
+                    <h1 style={{ fontSize: '18px', fontWeight: 800, textTransform: 'uppercase' }}>
+                        {isFinished ? "OPERATIONS COMPLETE" : currentStop?.customer}
+                    </h1>
+                    <p style={{ fontSize: '10px', color: '#666' }}>
+                        {isNavigating ? `CURRENTLY ON: ${currentStreet}` : (isFinished ? "AWAITING RETURN CLEARANCE" : currentStop?.address)}
+                    </p>
+                </div>
+
+                {!isFinished && (
+                    <div className="ops-stats-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: '#000', border: '1px solid #000', marginBottom: '16px' }}>
+                        <div style={{ background: '#fff', padding: '8px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#666' }}>ETA</div>
+                            <div style={{ fontSize: '12px', fontWeight: 800 }}>{etaDisplay}</div>
+                        </div>
+                        <div style={{ background: '#fff', padding: '8px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#666' }}>REMAINING</div>
+                            <div style={{ fontSize: '12px', fontWeight: 800 }}>{deliveryRoute.length - effectiveIndex}</div>
+                        </div>
+                        <div style={{ background: '#fff', padding: '8px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '8px', fontWeight: 800, color: '#666' }}>DELAY</div>
+                            <div style={{ fontSize: '12px', fontWeight: 800, color: delayMinutes > 0 ? '#ff0000' : '#000' }}>+{delayMinutes}m</div>
                         </div>
                     </div>
+                )}
 
-                    <div className="main-info">
-                        <h1 className="customer-name">
-                            {isFinished ? "OPERATIONS COMPLETE" : currentStop?.customer}
-                        </h1>
-                        <p className="address">
-                            {isNavigating ? (
-                                <span className="live-street-indicator">
-                                    <span className="live-dot"></span> Currently on: <strong>{currentStreet}</strong>
-                                </span>
-                            ) : (isFinished ? "Awaiting return-to-base clearance" : currentStop?.address)}
-                        </p>
-                        <div className="card-divider"></div>
-                    </div>
-
-                    {!isFinished && (
-                        <div className="ops-stats-row">
-                            <div className="mini-stat">
-                                <label>ETA</label>
-                                <span>{etaDisplay}</span>
-                            </div>
-                            <div className="mini-stat">
-                                <label>REMAINING</label>
-                                <span>{deliveryRoute.length - effectiveIndex} Stops</span>
-                            </div>
-                            <div className="mini-stat">
-                                <label>DELAY</label>
-                                <span className={delayMinutes > 0 ? 'warning' : ''}>+{delayMinutes}m</span>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="ops-actions">
-                        {!isFinished ? (
-                            <>
-                                <button
-                                    className={`action-btn secondary ${isNavigating ? 'active' : ''}`}
-                                    onClick={() => setIsNavigating(!isNavigating)}
-                                >
-                                    <DriverIcons.Navigation /> {isNavigating ? 'Exit Nav' : 'Start Nav'}
-                                </button>
-                                <button className="action-btn secondary warning" onClick={handleReportDelay}>
-                                    <DriverIcons.Warning /> Alert Delay
-                                </button>
-                                <button className="action-btn primary" onClick={handleComplete}>
-                                    <DriverIcons.Success /> Arrived
-                                </button>
-                            </>
-                        ) : (
-                            <button className="action-btn primary logout" onClick={onLogout}>
-                                <DriverIcons.Logout /> End Shift
+                <div className="ops-actions" style={{ display: 'flex', gap: '12px' }}>
+                    {!isFinished ? (
+                        <>
+                            <button className="btn-obsidian" style={{ flex: 1, padding: '16px', fontSize: '10px' }} onClick={() => setIsNavigating(!isNavigating)}>
+                                {isNavigating ? 'EXIT NAV' : 'START NAV'}
                             </button>
-                        )}
-                    </div>
+                            <button className="btn-ghost" style={{ flex: 1, padding: '16px', fontSize: '10px', border: '2px solid #000' }} onClick={handleReportDelay}>
+                                REPORT DELAY
+                            </button>
+                            <button className="btn-obsidian" style={{ flex: 1.5, padding: '16px', fontSize: '12px', background: '#000' }} onClick={handleComplete}>
+                                ARRIVED
+                            </button>
+                        </>
+                    ) : (
+                        <button className="btn-obsidian" style={{ width: '100%', padding: '20px' }} onClick={onLogout}>
+                            END SHIFT
+                        </button>
+                    )}
                 </div>
             </div>
 
             {isLoading && (
-                <div className="ops-overlay">
-                    <div className="loader"></div>
-                    <span>CALCULATING OPTIMAL PATH...</span>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.9)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '40px', height: '40px', border: '4px solid #000', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                    <div style={{ marginTop: '16px', fontSize: '10px', fontWeight: 800 }}>CALCULATING OPTIMAL PATH...</div>
                 </div>
             )}
         </div>

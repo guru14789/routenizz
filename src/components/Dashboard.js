@@ -2,7 +2,8 @@
  * USES: Fleet Command Center dashboard UI.
  * SUPPORT: Provides high-level visualization of the active network, includes the order entry form, and triggers global fleet optimizations by delegating to the App's VRP orchestrator.
  */
-import React, { useState } from 'react'; // React core for managing local UI states like dispatch banners
+import React, { useState, useEffect } from 'react'; // React core for managing local UI states like dispatch banners
+import { useNavigate } from 'react-router-dom';
 import OrderForm from './OrderForm'; // Import the order input component for adding manual tasks
 import RouteMap from './RouteMap'; // Import the Leaflet-based map for spatial visualization
 import PremiumStats from './PremiumStats'; // Import the KPI visualization strip
@@ -26,6 +27,24 @@ const Dashboard = ({
 }) => {
     // Local state to manage the success notification after a dispatch action
     const [justDispatched, setJustDispatched] = useState(false);
+    const [events, setEvents] = useState([
+        { id: 1, time: '10:42:15', msg: '[AUTONOMOUS] Reroute triggered for Fleet Alpha.', type: 'primary' },
+        { id: 2, time: '10:41:50', msg: '[VRP-ENGINE] Global solve complete. 12% gain.', type: 'secondary' },
+        { id: 3, time: '10:39:22', msg: '[TELEMETRY] Driver DRV-001 in traffic zone.', type: 'warn' }
+    ]);
+
+    // Simulate real-time events for Orion feel
+    useEffect(() => {
+        if (isCalculating) {
+            const newEvent = {
+                id: Date.now(),
+                time: new Date().toLocaleTimeString([], { hour12: false }),
+                msg: '[VRP-ENGINE] Recalculating optimal sequence...',
+                type: 'primary'
+            };
+            setEvents(prev => [newEvent, ...prev].slice(0, 5));
+        }
+    }, [isCalculating]);
 
     // Handler logic for the primary optimization action
     const handleGenerateRoute = async () => {
@@ -34,73 +53,75 @@ const Dashboard = ({
         setTimeout(() => setJustDispatched(false), 10000); // Auto-hide the banner after 10 seconds
     };
 
-    return ( // Return the layout for the Admin Command Center
-        <div className="command-center"> {/* Root container for the dashboard flex-grid */}
+    return (
+        <div className="command-center">
 
-            {/* Top Row: Key Performance Indicators */}
-            <section className="stats-strip">
+            <section className="stats-strip" style={{ marginBottom: '24px' }}>
                 <PremiumStats
-                    orders={orders} // Pass orders for counts
-                    route={route} // Pass route for distance/duration sums
-                    onActiveOrdersClick={onActiveOrdersClick} // Link interactions
-                    onRouteStopsClick={onRouteStopsClick} // Link interactions
-                    onCompletedOrdersClick={onCompletedOrdersClick} // Link interactions
-                    compact={false} // Use full-size visualization
-                    stats={stats} // Pass pre-calculated financial metrics
+                    orders={orders}
+                    route={route}
+                    onActiveOrdersClick={onActiveOrdersClick}
+                    onRouteStopsClick={onRouteStopsClick}
+                    onCompletedOrdersClick={onCompletedOrdersClick}
+                    compact={false}
+                    stats={stats}
                 />
             </section>
 
-            {/* Bottom Section: Side-by-side Control and Map visualization */}
-            <div className="main-control-grid">
+            <div className="dynamic-grid" style={{ gridTemplateColumns: '350px 1fr', alignItems: 'start' }}>
 
-                {/* Left Column: Management Tools */}
-                <div className="control-pane">
-                    <div className="pane-header">
-                        <h3>New Assignment</h3> {/* Section title */}
-                        <p>Dispatch new payloads into the active network</p> {/* Sub-description */}
+                <div className="analytics-card" style={{ padding: '0' }}>
+                    <div className="feed-header">
+                        <span className="feed-title">NEW ASSIGNMENT</span>
                     </div>
+                    <div style={{ padding: '24px' }}>
+                        <OrderForm onAddOrder={onAddOrder} drivers={drivers} />
 
-                    {/* Order Intake Form */}
-                    <OrderForm onAddOrder={onAddOrder} drivers={drivers} />
+                        <button className="prime-login-btn" onClick={handleGenerateRoute} disabled={isCalculating} style={{ marginTop: '24px' }}>
+                            {isCalculating ? 'CALIBRATING...' : 'EXECUTE FLEET OPTIMIZATION'}
+                        </button>
 
-                    {/* Primary Call to Action: Optimize Fleet */}
-                    <button className="dispatch-action-btn" onClick={handleGenerateRoute} disabled={isCalculating}>
-                        <span className="btn-icon">
-                            {/* SVG icon for the "Fast Power" dispatch action */}
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                            </svg>
-                        </span>
-                        {/* Dynamic label based on the solver state */}
-                        {isCalculating ? 'Calibrating Routes...' : 'Optimize & Dispatch Fleet'}
-                    </button>
-
-                    {/* Contextual Success UI */}
-                    {justDispatched && (
-                        <div className="dispatch-success-banner">
-                            <span>✅ Fleet Optimized & Dispatched</span> {/* User feedback */}
-                            <button onClick={onToggleRole}>View as Driver</button> {/* Navigation shortcut */}
-                        </div>
-                    )}
+                        {justDispatched && (
+                            <div style={{ marginTop: '16px', padding: '12px', background: '#000', color: '#fff', border: '2px solid #fff', fontSize: '10px', fontWeight: 800 }}>
+                                [SYSTEM] FLEET DISPATCHED SUCCESSFULLY
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Right Column: Geographic Awareness */}
-                <div className="map-pane">
-                    <div className="pane-header">
-                        <h3>Active Fleet Telemetry</h3> {/* Section title */}
-                        <div className="telemetry-tags">
-                            <span className={`tag ${gpsStatus === 'Active' ? 'tag-ok' : 'tag-warn'}`}>
-                                GPS: {gpsStatus || 'Unknown'}
-                            </span>
-                            <span className="tag">Network: Stable</span>
+                <div className="analytics-card" style={{ padding: '0' }}>
+                    <div className="feed-header">
+                        <span className="feed-title">ACTIVE TELEMETRY</span>
+                        <div style={{ display: 'flex', gap: '12px', fontSize: '10px' }}>
+                            <span>GPS: {gpsStatus === 'Active' ? '[OK]' : '[WARN]'}</span>
+                            <span>NET: [STABLE]</span>
                         </div>
                     </div>
-                    <div className="map-container-inner">
-                        {/* Integrated Interactive Map showing all routes and stop pins */}
+                    <div style={{ height: '400px', background: '#eee', position: 'relative' }}>
                         <RouteMap stops={route} unassignedOrders={orders} />
                     </div>
-                    {/* Live Backend Status — Orion Superiority Feature */}
+                    
                     <SystemHealth />
+
+                    <div className="operational-feed" style={{ border: 'none', marginTop: '0', borderTop: '2px solid #000' }}>
+                        <div className="feed-header" style={{ background: '#f9f9f9', color: '#000', borderBottom: '1px solid #000' }}>
+                            <span className="feed-title">OPERATIONAL INTELLIGENCE</span>
+                            <span className="feed-status" style={{ color: '#000' }}>LIVE_FEED</span>
+                        </div>
+                        <div className="feed-content" style={{ maxHeight: '150px' }}>
+                            {events.map(event => (
+                                <div className="feed-item" key={event.id} style={{ borderBottom: '1px solid #eee' }}>
+                                    <span className="feed-time" style={{ fontWeight: 800 }}>{event.time}</span>
+                                    <span className="feed-msg">
+                                        <strong style={{ color: '#000' }}>
+                                            {event.msg.split(' ')[0]}
+                                        </strong>
+                                        {event.msg.substring(event.msg.indexOf(' '))}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -38,3 +38,21 @@ class TripHistory(Base):
     stops_count = Column(Integer)
     raw_results = Column(JSON) # Full sequence of stops for playback
     optimization_score = Column(Float)
+
+class TelemetryLog(Base):
+    """
+    ORION Feedback Loop: Tracks Actual vs. Predicted performance per segment.
+    Used for ML model retraining and driver performance analytics.
+    """
+    __tablename__ = "telemetry_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(String, index=True)
+    segment_id = Column(String)  # Stop ID or segment identifier
+    predicted_duration_sec = Column(Float)
+    actual_duration_sec = Column(Float)
+    predicted_distance_km = Column(Float)
+    actual_distance_km = Column(Float)
+    traffic_multiplier_at_time = Column(Float)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    efficiency_gap = Column(Float)  # (Actual - Predicted) / Predicted
