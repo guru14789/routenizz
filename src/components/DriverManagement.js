@@ -170,175 +170,302 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
     };
 
     if (selectedDriver) {
+        // Filter orders specific to this driver
         const driverOrders = orders.filter(o => o.driverId === selectedDriver.id);
+
+        // Calculate the optimized route uniquely for this driver's orders
+        const pendingDriverOrders = driverOrders.filter(o => o.status === 'Pending');
+
+        // NOTE: optimizeRoute is async. Per-driver route is computed in the Dashboard
+        // via the onRecalculate prop which feeds back through the global route state.
         const driverOptimizedOrders = route.filter(o => o.driverId === selectedDriver.id);
 
         return (
             <div className="driver-management-container" style={{ paddingBottom: '2rem' }}>
-                <div className="dm-header" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '24px', borderBottom: '2px solid #000', paddingBottom: '16px' }}>
+                <div className="dm-header" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     <button
+                        className="back-btn"
                         onClick={() => navigate('/admin/drivers')}
-                        className="btn-ghost"
-                        style={{ padding: '8px 16px', fontSize: '10px' }}
+                        style={{ padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid #d0d5dd', background: '#fff', cursor: 'pointer', fontWeight: '500' }}
                     >
-                        ← BACK_TO_FLEET
+                        ← Back to Fleet
                     </button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ width: '40px', height: '40px', background: '#000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px' }}>
-                            {selectedDriver.avatar}
-                        </div>
+                    <div className="driver-info-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div className="driver-avatar" style={{ width: '40px', height: '40px' }}>{selectedDriver.avatar}</div>
                         <div>
-                            <h2 style={{ fontSize: '16px', fontWeight: 800, textTransform: 'uppercase' }}>MANIFEST: {selectedDriver.name}</h2>
-                            <p style={{ fontSize: '9px', color: '#666', fontWeight: 700 }}>UNIT_ID: {selectedDriver.id} // {selectedDriver.vehicle.toUpperCase()}</p>
+                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{selectedDriver.name}'s Route</h2>
+                            <p style={{ margin: 0, color: '#667085', fontSize: '0.85rem' }}>Managing active assignments for {selectedDriver.id} ({selectedDriver.vehicle})</p>
                         </div>
                     </div>
                 </div>
 
-                <Dashboard
-                    orders={driverOrders}
-                    route={driverOptimizedOrders}
-                    setRoute={setRoute}
-                    isCalculating={false}
-                    onAddOrder={(newOrder) => onAddOrder({ ...newOrder, driverId: selectedDriver.id })}
-                    onDeleteOrder={onDeleteOrder}
-                    onRecalculate={onRecalculate}
-                    onToggleRole={onToggleRole}
-                />
+                <div style={{ marginTop: '2rem' }}>
+                    <Dashboard
+                        orders={driverOrders}
+                        route={driverOptimizedOrders}
+                        setRoute={setRoute}
+                        isCalculating={false} // Prevent global re-calc loop in individual view
+                        onAddOrder={(newOrder) => onAddOrder({ ...newOrder, driverId: selectedDriver.id })}
+                        onDeleteOrder={onDeleteOrder}
+                        onRecalculate={onRecalculate}
+                        onToggleRole={onToggleRole}
+                    />
+                </div>
             </div>
         );
     }
 
     return (
         <div className="driver-management-container">
-            <div className="dm-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: '32px', borderBottom: '2px solid #000', paddingBottom: '16px' }}>
-                <div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 800 }}>FLEET_OPERATIONS</h2>
-                    <p style={{ fontSize: '10px', color: '#666' }}>ACTIVE_UNITS: {filteredDrivers.length} / v2.1-OBSIDIAN</p>
+            <div className="dm-header">
+                <div className="dm-title-section">
+                    <h2>Driver Fleet</h2>
+                    <p>Manage and track your active delivery personnel</p>
                 </div>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                    <div className="search-bar" style={{ borderRadius: 0, border: '2px solid #000', width: '300px' }}>
+                <div className="dm-actions">
+                    <div className="search-bar">
                         <span className="search-icon"><DriverManagementIcons.Search /></span>
                         <input
                             type="text"
-                            placeholder="SEARCH_BY_ID_OR_NAME..."
+                            placeholder="Search by name or ID..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: 700 }}
                         />
                     </div>
-                    <button className="btn-obsidian" onClick={() => handleOpenModal()} style={{ padding: '0 24px', fontSize: '11px' }}>
-                        + ONBOARD_NEW_UNIT
-                    </button>
+                    <button className="add-driver-btn" onClick={() => setIsAddModalOpen(true)}>+ Add New Driver</button>
                 </div>
             </div>
 
-            <div className="drivers-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
+            <div className="drivers-grid">
                 {filteredDrivers.map(driver => (
-                    <div className="analytics-card" key={driver.id} style={{ padding: '24px', border: '2px solid #000', background: '#fff', borderTop: '6px solid #000' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                <div style={{ width: '48px', height: '48px', background: '#000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 900 }}>
-                                    {driver.avatar}
-                                </div>
-                                <div>
-                                    <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', margin: 0 }}>{driver.name}</h3>
-                                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#666' }}>{driver.id}</span>
-                                </div>
+                    <div className="driver-card" key={driver.id} style={{ borderTop: `4px solid ${getFleetColor(driver.id)}` }}>
+                        <div className="driver-card-header">
+                            <div className="driver-avatar" style={{ backgroundColor: getFleetColor(driver.id), color: '#fff' }}>{driver.avatar}</div>
+                            <div className="driver-info">
+                                <h3>{driver.name}</h3>
+                                <span className="driver-id">{driver.id}</span>
                             </div>
-                            <span style={{ 
-                                background: driver.status === 'On Route' ? '#000' : '#fff', 
-                                color: driver.status === 'On Route' ? '#fff' : '#000', 
-                                border: '1px solid #000',
-                                padding: '2px 8px',
-                                fontSize: '9px',
-                                fontWeight: 900
-                            }}>
-                                [{driver.status.toUpperCase()}]
-                            </span>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                            <div style={{ border: '1px solid #eee', padding: '8px' }}>
-                                <div style={{ fontSize: '8px', color: '#666', fontWeight: 800 }}>VEHICLE_UNIT</div>
-                                <div style={{ fontSize: '10px', fontWeight: 800 }}>{driver.vehicle.toUpperCase()}</div>
-                            </div>
-                            <div style={{ border: '1px solid #eee', padding: '8px' }}>
-                                <div style={{ fontSize: '8px', color: '#666', fontWeight: 800 }}>PERFORMANCE_SCORE</div>
-                                <div style={{ fontSize: '10px', fontWeight: 800 }}>{driver.rating} / 5.0</div>
+                            <div className={`status-badge ${getStatusClass(driver.status)}`}>
+                                <span className="status-dot"></span>
+                                {driver.status}
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button className="btn-obsidian" onClick={() => navigate(`/admin/drivers/${driver.id}`)} style={{ flex: 1, fontSize: '10px', padding: '10px' }}>
-                                MANAGE_ROUTE
-                            </button>
-                            <button className="btn-ghost" onClick={() => handleOpenModal(driver)} style={{ padding: '10px', fontSize: '10px' }}>
-                                EDIT
-                            </button>
-                            <button className="btn-ghost" onClick={() => window.location.href = `tel:${driver.phone}`} style={{ padding: '10px', fontSize: '10px' }}>
-                                CONTACT
-                            </button>
-                            <button 
-                                className="btn-ghost" 
-                                style={{ padding: '10px', fontSize: '10px', color: '#f00' }}
-                                onClick={() => {
-                                    if (window.confirm(`TERMINATE_UNIT: ${driver.id}?`)) {
-                                        onDeleteDriver(driver.id);
-                                    }
-                                }}
+                        <div className="driver-stats">
+                            <div className="d-stat">
+                                <span className="d-label">Vehicle</span>
+                                <span className="d-value">{driver.vehicle}</span>
+                            </div>
+                            <div className="d-stat">
+                                <span className="d-label">Rating</span>
+                                <span className="d-value"><DriverManagementIcons.Star /> {driver.rating}</span>
+                            </div>
+                            <div className="d-stat">
+                                <span className="d-label">Completed</span>
+                                <span className="d-value">{driver.completedToday}</span>
+                            </div>
+                        </div>
+
+                        <div className="driver-actions">
+                             <button
+                                className="contact-btn"
+                                style={{ padding: '0.4rem 0.6rem' }}
+                                onClick={() => handleOpenModal(driver)}
                             >
-                                DELETE
+                                Edit
                             </button>
+                            <button
+                                className="contact-btn"
+                                onClick={() => window.location.href = `tel:${driver.phone}`}
+                            >
+                                <DriverManagementIcons.Phone /> Contact
+                            </button>
+                            <button
+                                className="assign-btn"
+                                onClick={() => navigate(`/admin/drivers/${driver.id}`)}
+                            >
+                                <DriverManagementIcons.Map /> Manage Route
+                            </button>
+                            {onDeleteDriver && (
+                                <button
+                                    className="contact-btn"
+                                    style={{ padding: '0.4rem 0.6rem', color: '#d92d20', borderColor: '#fda29b' }}
+                                    onClick={() => {
+                                        if (window.confirm(`Remove ${driver.name} from the fleet? This cannot be undone.`)) {
+                                            onDeleteDriver(driver.id);
+                                        }
+                                    }}
+                                    title="Remove driver"
+                                >
+                                    ✕ Remove
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
+
+                {filteredDrivers.length === 0 && (
+                    <div className="no-drivers-found">
+                        <p>No drivers found matching "{searchTerm}"</p>
+                    </div>
+                )}
             </div>
 
+            {/* Driver Modal (Add/Edit) */}
             {isAddModalOpen && (
-                <div className="modal-overlay" style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="analytics-card" style={{ width: '600px', padding: '32px', border: '3px solid #000', background: '#fff' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '2px solid #000', paddingBottom: '16px' }}>
-                            <h3 style={{ fontSize: '16px', fontWeight: 800 }}>{editingDriver ? "UPDATE_UNIT_CONFIG" : "REGISTER_NEW_UNIT"}</h3>
-                            <button onClick={() => setIsAddModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
+                <div className="dm-modal-overlay" onClick={() => setIsAddModalOpen(false)}>
+                    <div className="dm-modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="dm-modal-header">
+                            <h3>{editingDriver ? "Edit Driver Details" : "Onboard New Driver"}</h3>
+                            <button className="close-modal" onClick={() => setIsAddModalOpen(false)}>&times;</button>
                         </div>
-                        
-                        <form onSubmit={handleFormSubmit}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                                <div className="input-field" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
-                                    <label>FULL_NAME</label>
-                                    <input type="text" required value={driverFormData.name} onChange={e => setDriverFormData({ ...driverFormData, name: e.target.value })} />
+                        <form onSubmit={handleFormSubmit} className="dm-modal-form">
+                            <div className="form-grid">
+                                <div className="form-group full-width">
+                                    <label>Full Name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. John Doe"
+                                        required
+                                        value={driverFormData.name}
+                                        onChange={e => setDriverFormData({ ...driverFormData, name: e.target.value })}
+                                    />
                                 </div>
-                                <div className="input-field" style={{ marginBottom: 0 }}>
-                                    <label>VEHICLE_TYPE</label>
-                                    <select value={driverFormData.vehicleType} onChange={e => setDriverFormData({ ...driverFormData, vehicleType: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid #000', borderRadius: 0, appearance: 'none', background: '#fff' }}>
-                                        <option value="van">VAN</option>
-                                        <option value="bike">BIKE</option>
-                                        <option value="truck">TRUCK</option>
-                                        <option value="scooty">SCOOTY</option>
+                                <div className="form-group">
+                                    <label>Vehicle Type</label>
+                                    <select
+                                        value={driverFormData.vehicleType}
+                                        onChange={e => setDriverFormData({ ...driverFormData, vehicleType: e.target.value })}
+                                        className="form-select"
+                                    >
+                                        <option value="bike">Bike</option>
+                                        <option value="scooty">Scooty</option>
+                                        <option value="van">Van</option>
+                                        <option value="truck">Truck</option>
+                                        <option value="lorry">Lorry</option>
+                                        <option value="bus">Bus</option>
                                     </select>
                                 </div>
-                                <div className="input-field" style={{ marginBottom: 0 }}>
-                                    <label>UNIT_REG_NUMBER</label>
-                                    <input type="text" required value={driverFormData.vehicleNumber} onChange={e => setDriverFormData({ ...driverFormData, vehicleNumber: e.target.value })} />
+                                <div className="form-group">
+                                    <label>Vehicle Number</label>
+                                    <input
+                                        type="text"
+                                        placeholder="TN 01 AB 1234"
+                                        required
+                                        value={driverFormData.vehicleNumber}
+                                        onChange={e => setDriverFormData({ ...driverFormData, vehicleNumber: e.target.value })}
+                                    />
                                 </div>
-                                <div className="input-field" style={{ marginBottom: 0 }}>
-                                    <label>FUEL_TYPE</label>
-                                    <select value={driverFormData.fuelType} onChange={e => setDriverFormData({ ...driverFormData, fuelType: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid #000', borderRadius: 0, appearance: 'none', background: '#fff' }}>
-                                        <option value="Diesel">DIESEL</option>
-                                        <option value="Petrol">PETROL</option>
-                                        <option value="Electric">ELECTRIC</option>
+                                <div className="form-group">
+                                    <label>Fuel Type</label>
+                                    <select
+                                        value={driverFormData.fuelType}
+                                        onChange={e => setDriverFormData({ ...driverFormData, fuelType: e.target.value })}
+                                        className="form-select"
+                                    >
+                                        <option value="Diesel">Diesel</option>
+                                        <option value="Petrol">Petrol</option>
+                                        <option value="Electric">Electric</option>
                                     </select>
                                 </div>
-                                <div className="input-field" style={{ marginBottom: 0 }}>
-                                    <label>CONSUMPTION (L/100KM)</label>
-                                    <input type="number" step="0.1" value={driverFormData.consumption} onChange={e => setDriverFormData({ ...driverFormData, consumption: parseFloat(e.target.value) || 0 })} />
+                                <div className="form-group">
+                                    <label>Consumption (L/100km)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="12.0"
+                                        step="0.1"
+                                        value={driverFormData.consumption}
+                                        onChange={e => setDriverFormData({ ...driverFormData, consumption: parseFloat(e.target.value) || 0 })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Hourly Wage (₹)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="250.0"
+                                        step="10"
+                                        value={driverFormData.hourlyWage}
+                                        onChange={e => setDriverFormData({ ...driverFormData, hourlyWage: parseFloat(e.target.value) || 0 })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Idle Cost/hr (₹)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="50.0"
+                                        step="5"
+                                        value={driverFormData.idleCost}
+                                        onChange={e => setDriverFormData({ ...driverFormData, idleCost: parseFloat(e.target.value) || 0 })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>License Number</label>
+                                    <input
+                                        type="text"
+                                        placeholder="TN 01 20240001234"
+                                        value={driverFormData.licenseNo}
+                                        onChange={e => setDriverFormData({ ...driverFormData, licenseNo: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Employee Number</label>
+                                    <input
+                                        type="text"
+                                        placeholder="EMP-10234"
+                                        value={driverFormData.employeeNo}
+                                        onChange={e => setDriverFormData({ ...driverFormData, employeeNo: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Phone Number</label>
+                                    <input
+                                        type="tel"
+                                        placeholder="+91 98765 43210"
+                                        value={driverFormData.phone}
+                                        onChange={e => setDriverFormData({ ...driverFormData, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Max Load (kg)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="500"
+                                        value={driverFormData.maxLoad}
+                                        onChange={e => setDriverFormData({ ...driverFormData, maxLoad: e.target.value })}
+                                    />
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '16px' }}>
-                                <button type="button" className="btn-ghost" onClick={() => setIsAddModalOpen(false)} style={{ flex: 1, padding: '16px' }}>CANCEL</button>
-                                <button type="submit" className="btn-obsidian" style={{ flex: 2, padding: '16px' }}>
-                                    {editingDriver ? "COMMIT_CHANGES" : "FINALIZE_REGISTRATION"}
+                            <div className="container-dimensions">
+                                <label>Container Size (W x B x H)</label>
+                                <div className="dimension-inputs">
+                                    <input
+                                        type="number"
+                                        placeholder="Width"
+                                        value={driverFormData.width}
+                                        onChange={e => setDriverFormData({ ...driverFormData, width: e.target.value })}
+                                    />
+                                    <span>&times;</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Breadth"
+                                        value={driverFormData.breadth}
+                                        onChange={e => setDriverFormData({ ...driverFormData, breadth: e.target.value })}
+                                    />
+                                    <span>&times;</span>
+                                    <input
+                                        type="number"
+                                        placeholder="Height"
+                                        value={driverFormData.height}
+                                        onChange={e => setDriverFormData({ ...driverFormData, height: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-actions">
+                                <button type="button" className="cancel-btn" onClick={() => setIsAddModalOpen(false)}>Cancel</button>
+                                <button type="submit" className="submit-btn" disabled={!driverFormData.name || !driverFormData.vehicleNumber}>
+                                    {editingDriver ? "Update Driver" : "Register Driver"}
                                 </button>
                             </div>
                         </form>

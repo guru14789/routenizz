@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 class EnhancedCostCalculator:
     """
     Calculates the combined cost of a route segment.
-    Factors: Distance + Fuel + Delay (Time Window Penalty)
+    Factors: Distance + Fuel + Delay (Time Window Penalty) + Turn Complexity (ORION Tier)
     """
     @staticmethod
     def calculate_segment_cost(
@@ -16,12 +16,14 @@ class EnhancedCostCalculator:
         duration_sec: float, 
         arrival_time: int,
         time_window_end: int,
-        v_config: Dict[str, Any]
+        v_config: Dict[str, Any],
+        turn_complexity: float = 1.0 # 1.0 = baseline, >1.0 = heavy turns
     ) -> float:
         # 1. Fuel Cost
         consumption = v_config.get('consumption_liters_per_100km', 12.0)
         fuel_price = v_config.get('fuel_price_per_litre', 95.0)
-        fuel_cost = (distance_km / 100.0) * consumption * fuel_price
+        # Apply complexity multiplier (simulates idle fuel loss during difficult turns)
+        fuel_cost = (distance_km / 100.0) * consumption * fuel_price * turn_complexity
 
         # 2. Distance Cost (direct wear and tear)
         distance_cost = distance_km * v_config.get('cost_per_km', 1.5)
@@ -38,6 +40,24 @@ class EnhancedCostCalculator:
         labor_cost = (duration_sec / 3600.0) * wage
 
         return fuel_cost + distance_cost + delay_cost + labor_cost
+
+class SustainabilityEngine:
+    """
+    Module 11: Sustainability Optimization Engine.
+    Models emissions and environmental impact of the fleet.
+    """
+    @staticmethod
+    def calculate_co2_kg(distance_km: float, fuel_consumed_liters: float) -> float:
+        # Average Diesel CO2 emission: 2.68 kg per liter
+        return round(fuel_consumed_liters * 2.68, 3)
+
+    @staticmethod
+    def calculate_turn_penalty(segment_geometry: str) -> float:
+        """
+        ORION Logic: Penalize turns across traffic (Right turns in India).
+        (Placeholder for geometry analysis — returns 1.05 for complex segments)
+        """
+        return 1.05 # Conservative turn penalty factor
 
 class TwoOptOptimizer:
     """

@@ -44,10 +44,29 @@ class RouteBuilder:  # Logic engine for processing raw solver output into action
 
                 traffic_aware_duration_min = (raw_duration_sec * multiplier) / 60.0  # Apply congestion overhead
 
+                # Step 3: NavCore Instruction Generation (Module 04)
+                # Provides specific arrival guidance to reduce cognitive load
+                instructions = []
+                for i in range(1, len(stops)):
+                    leg_dist = route_obj.get('legs', [{}])[i-1].get('distance', 0) / 1000.0
+                    cust = stops[i].get('name', 'Client')
+                    
+                    if i == len(stops) - 1:
+                        guidance = f"Final stop at {cust}. End of route sequence."
+                    else:
+                        guidance = f"Travel {leg_dist:.1f}km to {cust}. Park near entrance."
+                    
+                    # Add specialized guidance if metadata exists
+                    if stops[i].get('priority', 0) > 8:
+                        guidance += " [PRIORITY DROP]"
+                    
+                    instructions.append(guidance)
+
                 return {  # Return the finalized, high-fidelity route data
                     "geometry": route_obj["geometry"],  # GeoJSON path for map overlay
                     "distance_km": round(distance_meters / 1000.0, 2),  # Distance in KM
-                    "duration_min": round(traffic_aware_duration_min, 2)  # Traffic-realistic time
+                    "duration_min": round(traffic_aware_duration_min, 2),  # Traffic-realistic time
+                    "navigation_instructions": instructions
                 }
 
         except Exception as e:

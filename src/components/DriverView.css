@@ -686,6 +686,40 @@
     }
 }
 
+/* NavCore Guidance - Industrial Style */
+.navcore-guidance {
+    margin-top: 20px;
+    background: rgba(16, 185, 129, 0.03);
+    border: 1px solid rgba(16, 185, 129, 0.1);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 25px;
+}
+
+.guidance-label {
+    font-size: 10px;
+    font-weight: 900;
+    color: #10b981;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+}
+
+.guidance-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #f3f4f6;
+    line-height: 1.4;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+@media (max-width: 768px) {
+    .navcore-guidance {
+        margin-top: 15px;
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+}
+
 /* Premium Awaiting Dispatch View */
 .empty-state-view {
     position: fixed;
