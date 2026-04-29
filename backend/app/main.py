@@ -58,6 +58,20 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Production ready: Database tables initialized.")
 
+    # 1.5 Initialize Firebase Admin
+    import firebase_admin
+    from firebase_admin import credentials
+    if not firebase_admin._apps:
+        # Check for service account env var, fallback to default for dev
+        cred_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+        if cred_path and os.path.exists(cred_path):
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+            logger.info("Firebase Admin initialized with service account.")
+        else:
+            firebase_admin.initialize_app()
+            logger.info("Firebase Admin initialized with default credentials.")
+
     # 2. Start Re-Optimization Event Service (background)
     from app.services.reopt_service import reopt_service
     reopt_task = asyncio.create_task(reopt_service.start())
@@ -89,6 +103,38 @@ async def lifespan(app: FastAPI):
     from app.services.weather_watchdog import weather_watchdog
     weather_task = asyncio.create_task(weather_watchdog.start())
     logger.info("[ORION-ELITE] 🌦️ Weather Watchdog started — polling every 10 min.")
+
+    # 5. Full Firebase State Sync (one-time on startup)
+    async def startup_sync():
+        try:
+            from app.services.firebase_db_service import firebase_db_service
+            async with async_session() as session:
+                # Sync Vehicles/Drivers
+                v_res = await session.execute(select(Vehicle).where(Vehicle.is_active == True))
+                for v in v_res.scalars().all():
+                    await firebase_db_service.add_driver({
+                        "vehicle_id": v.external_id,
+                        "vehicle_type": v.vehicle_type,
+                        "status": "active",
+                        "last_sync": datetime.datetime.utcnow().isoformat()
+                    })
+                
+                # Sync Orders
+                o_res = await session.execute(select(Order).where(Order.status != "completed"))
+                for o in o_res.scalars().all():
+                    await firebase_db_service.add_order({
+                        "id": str(o.id),
+                        "customer_name": o.customer_name,
+                        "lat": o.destination_lat,
+                        "lng": o.destination_lng,
+                        "status": o.status,
+                        "assigned_vehicle_id": o.assigned_vehicle_id
+                    })
+            logger.info("[FIREBASE] Startup sync complete.")
+        except Exception as e:
+            logger.error(f"[FIREBASE] Startup sync failed: {e}")
+
+    asyncio.create_task(startup_sync())
 
     yield
 
@@ -132,7 +178,54 @@ async def error_handling_middleware(request: Request, call_next):
             content={"detail": "Internal Server Error", "correlation_id": str(time.time())}
         )
 
-# 2. Response Time Logging Middleware
+# 2. Audit Logging Middleware
+@app.middleware("http")
+async def audit_logging_middleware(request: Request, call_next):
+    """Logs every enterprise request to the AuditLog table for compliance."""
+    from app.db.database import async_session
+    from app.models.db_models import AuditLog
+    import json
+
+    start_time = time.time()
+    
+    # We only log JSON bodies for POST/PUT to keep DB size manageable
+    request_payload = None
+    if request.method in ["POST", "PUT", "PATCH"]:
+        try:
+            # Note: consuming body here might cause issues if not handled carefully (request.body() can only be read once)
+            # However, for audit we often need it. 
+            pass # Skipping body capture for now to avoid breaking stream, or use a workaround if needed
+        except Exception:
+            pass
+
+    response = await call_next(request)
+    process_time_ms = (time.time() - start_time) * 1000
+
+    # Background task to save audit log without blocking response
+    async def save_audit():
+        try:
+            async with async_session() as session:
+                log = AuditLog(
+                    endpoint=request.url.path,
+                    method=request.method,
+                    status_code=response.status_code,
+                    process_time_ms=process_time_ms,
+                    ip_address=request.client.host if request.client else "unknown",
+                    user_agent=request.headers.get("user-agent"),
+                    # user_id would be extracted from token if available, but middleware runs before auth injection
+                    # A better way is to attach it to request.state in auth dependency
+                )
+                session.add(log)
+                await session.commit()
+        except Exception as e:
+            logger.error(f"[AUDIT] Failed to save log: {e}")
+
+    import asyncio
+    asyncio.create_task(save_audit())
+
+    return response
+
+# 3. Response Time Logging Middleware (Legacy/Console)
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
@@ -152,8 +245,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,      # Explicit list — never a wildcard in production
     allow_credentials=True,             # Safe: credentials only allowed with explicit origins
-    allow_methods=["*"],                # Permits all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],                # Permits all custom headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 # Include Enterprise Routers to build the final API surface

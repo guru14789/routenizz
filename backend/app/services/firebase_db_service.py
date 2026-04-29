@@ -83,4 +83,36 @@ class FirebaseDBService:
         except Exception as e:
             logger.error(f"Error syncing route to Firestore for vehicle {vehicle_id}: {e}")
 
+    async def update_telemetry(self, vehicle_id: str, lat: float, lng: float, extra: Optional[Dict[str, Any]] = None):
+        """Updates live GPS coordinates in Firestore for real-time tracking."""
+        if not self.db:
+            return
+        try:
+            doc_ref = self.db.collection("drivers").document(vehicle_id)
+            update_data = {
+                "location": {"lat": lat, "lng": lng},
+                "last_ping": datetime.utcnow()
+            }
+            if extra:
+                update_data.update(extra)
+            doc_ref.update(update_data)
+        except Exception as e:
+            logger.error(f"Error updating telemetry for {vehicle_id}: {e}")
+
+    async def log_driver_event(self, vehicle_id: str, event_type: str, message: str, metadata: Optional[Dict[str, Any]] = None):
+        """Logs a driver-initiated event (delay, exception, pod) to the global event stream."""
+        if not self.db:
+            return
+        try:
+            event_ref = self.db.collection("events").document()
+            event_ref.set({
+                "vehicle_id": vehicle_id,
+                "type": event_type,
+                "message": message,
+                "metadata": metadata or {},
+                "timestamp": datetime.utcnow()
+            })
+        except Exception as e:
+            logger.error(f"Error logging driver event: {e}")
+
 firebase_db_service = FirebaseDBService()

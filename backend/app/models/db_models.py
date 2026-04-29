@@ -36,6 +36,11 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+    __table_args__ = (
+        Index("idx_order_status_created", "status", "created_at"),
+        Index("idx_order_destination", "destination_lat", "destination_lng"),
+    )
+
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
@@ -261,3 +266,40 @@ class User(Base):
 
     # Relationships
     vehicle = relationship("Vehicle", backref="driver")
+
+class AuditLog(Base):
+    """
+    ORION-ELITE: System-wide audit trail.
+    Logs every write operation and sensitive read for compliance and security.
+    """
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True, nullable=True)
+    email = Column(String, index=True, nullable=True)
+    endpoint = Column(String, index=True)
+    method = Column(String)
+    status_code = Column(Integer)
+    process_time_ms = Column(Float)
+    ip_address = Column(String)
+    user_agent = Column(String, nullable=True)
+    request_payload = Column(JSON, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+class ModelMetrics(Base):
+    """
+    ORION-ELITE: MLOps Monitoring.
+    Tracks 'Actual vs Predicted' travel times for model drift detection
+    and automated retraining pipelines.
+    """
+    __tablename__ = "model_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    segment_id = Column(String, index=True, nullable=True)
+    predicted_time_min = Column(Float)
+    actual_time_min = Column(Float)
+    error_pct = Column(Float)
+    weather_condition = Column(String, nullable=True)
+    hour_of_day = Column(Integer)
+    day_of_week = Column(Integer)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)

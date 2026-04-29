@@ -13,11 +13,12 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './src/shared'),
       '@services': path.resolve(__dirname, './src/services'),
       '@pages': path.resolve(__dirname, './src/pages'),
+      '@components': path.resolve(__dirname, './src/components'),
     },
   },
   esbuild: {
     loader: 'jsx',
-    include: /src\/.*\.js$/,
+    include: /src\/.*\.[tj]sx?$/,
     exclude: [],
   },
   optimizeDeps: {

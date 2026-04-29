@@ -20,3 +20,6 @@ build/
 coverage/
 .nyc_output/
 *.swp
+.agent/
+.run_pids
+.gemini/

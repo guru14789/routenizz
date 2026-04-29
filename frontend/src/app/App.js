@@ -367,5 +367,17 @@ function AppContent() {
     );
 }
 
+import ErrorBoundary from '@components/ErrorBoundary';
+
 // Global App Wrapper with Router Context
-export default function App() { return <Router><AppProvider><AppContent /></AppProvider></Router>; }
+export default function App() { 
+    return (
+        <ErrorBoundary>
+            <Router>
+                <AppProvider>
+                    <AppContent />
+                </AppProvider>
+            </Router>
+        </ErrorBoundary>
+    ); 
+}

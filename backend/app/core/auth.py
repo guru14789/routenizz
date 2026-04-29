@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.database import get_db
 from app.models.db_models import User
+from firebase_admin import auth as firebase_auth
 
 # Direct bcrypt hashing (avoiding passlib bug on 3.12+)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
@@ -28,6 +29,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
     return encoded_jwt
+
+async def verify_firebase_token(token: str):
+    """
+    Verifies a Firebase ID Token using the Admin SDK.
+    Returns the user's UID and decoded payload.
+    """
+    try:
+        # Note: In production, ensure firebase_admin is initialized (handled in lifespan)
+        decoded_token = firebase_auth.verify_id_token(token)
+        return decoded_token
+    except Exception as e:
+        logger.error(f"[AUTH] Firebase token verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid or expired Firebase token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(

@@ -17,6 +17,7 @@ from app.db.database import get_db
 from app.models.db_models import Order, DriverIntentLog, ReOptEvent
 from app.core.logger import logger
 from app.core.config import config
+from app.services.firebase_db_service import firebase_db_service
 
 router = APIRouter(prefix="/driver", tags=["Driver Workflow"])
 
@@ -150,6 +151,19 @@ async def complete_stop(
     await db.commit()
     logger.info(f"[DRIVER] Stop {stop_id} marked '{outcome}' by driver {driver_id}. Proof: {proof_type}")
 
+    # ── Sync to Firebase ──
+    try:
+        await firebase_db_service.update_order_status(str(stop_id), order.status, {
+            "proof": proof_record,
+            "completed_at": order.actual_completion_time
+        })
+        await firebase_db_service.log_driver_event(driver_id, "stop_completion", f"Stop {stop_id} marked {outcome}", {
+            "order_id": stop_id,
+            "outcome": outcome
+        })
+    except Exception as f_err:
+        logger.warning(f"Failed to sync stop completion for {stop_id} to Firebase: {f_err}")
+
     return {
         "success": True,
         "stop_id": stop_id,
@@ -206,6 +220,18 @@ async def report_delay(
     )
     db.add(reopt_event)
     await db.commit()
+
+    # ── Sync to Firebase ──
+    try:
+        await firebase_db_service.log_driver_event(driver_id, "delay_report", f"Delay of {delay_minutes}min reported", {
+            "stop_id": stop_id,
+            "delay_minutes": delay_minutes,
+            "reason": reason
+        })
+        if current_lat and current_lng:
+            await firebase_db_service.update_telemetry(driver_id, current_lat, current_lng, {"status": "delayed"})
+    except Exception as f_err:
+        logger.warning(f"Failed to sync delay report for {driver_id} to Firebase: {f_err}")
 
     return {
         "success": True,
@@ -297,4 +323,22 @@ async def add_pickup(
         logger.warning(f"[DRIVER] Pickup Redis publish skipped: {e}")
 
     await db.commit()
+
+    # ── Sync to Firebase ──
+    try:
+        await firebase_db_service.add_order({
+            "id": str(new_order.id),
+            "customer_name": customer_name,
+            "lat": dest_lat,
+            "lng": dest_lng,
+            "priority": priority,
+            "status": "assigned",
+            "assigned_vehicle_id": driver_id,
+            "stop_type": "Pickup",
+            "created_at": datetime.datetime.utcnow().isoformat()
+        })
+        await firebase_db_service.log_driver_event(driver_id, "new_pickup", f"New pickup requested for {customer_name}")
+    except Exception as f_err:
+        logger.warning(f"Failed to sync pickup order {new_order.id} to Firebase: {f_err}")
+
     return {"success": True, "order_id": new_order.id, "message": f"Pickup assigned to {driver_id}. Re-optimization queued."}

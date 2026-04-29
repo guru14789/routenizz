@@ -604,6 +604,25 @@ async def intervene(req: InterventionRequest, db: AsyncSession = Depends(get_db)
     db.add(event)
     await db.commit()
 
+    # ── Sync to Firebase ──
+    try:
+        await firebase_db_service.log_driver_event(req.driver_id, f"admin_{req.action}", f"Admin triggered {req.action}: {req.reason}", {
+            "action": req.action,
+            "payload": req.payload,
+            "reason": req.reason
+        })
+        if req.action == "pause":
+            await firebase_db_service.add_driver({"vehicle_id": req.driver_id, "status": "paused"})
+        elif req.action == "reroute":
+            # For reroute, we might want to update the current_route specifically
+            await firebase_db_service.add_driver({
+                "vehicle_id": req.driver_id, 
+                "status": "rerouting",
+                "manual_override_at": datetime.datetime.utcnow().isoformat()
+            })
+    except Exception as f_err:
+        logger.warning(f"Failed to sync admin intervention for {req.driver_id} to Firebase: {f_err}")
+
     logger.info(f"[ADMIN] Intervention '{req.action}' on driver {req.driver_id}")
     return {
         "success": True,

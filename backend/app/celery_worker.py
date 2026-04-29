@@ -94,7 +94,8 @@ def optimize_vrp_task(office, vehicles, stops):
                     session.add(history)
                     await session.commit()
                 except Exception as db_err:
-                    print(f"[WORKER] Database Archiving Failed: {db_err}")
+                    from app.core.logger import logger
+                    logger.error(f"[WORKER] Database Archiving Failed: {db_err}", exc_info=True)
 
         loop2 = asyncio.new_event_loop()
         asyncio.set_event_loop(loop2)
@@ -157,7 +158,8 @@ def run_incremental_reoptimization(task_payload: dict):
         )
     except Exception as e:
         loop.close()
-        print(f"[REOPT WORKER] Solve failed: {e}")
+        from app.core.logger import logger
+        logger.error(f"[REOPT WORKER] Solve failed: {e}", exc_info=True)
         return {"status": "failed", "error": str(e)}
     finally:
         if not loop.is_closed():
@@ -184,7 +186,8 @@ def run_incremental_reoptimization(task_payload: dict):
                 session.add(evt)
                 await session.commit()
             except Exception as e:
-                print(f"[REOPT WORKER] Event log failed: {e}")
+                from app.core.logger import logger
+                logger.error(f"[REOPT WORKER] Event log failed: {e}", exc_info=True)
 
     loop3 = asyncio.new_event_loop()
     asyncio.set_event_loop(loop3)
@@ -205,6 +208,10 @@ def continuous_reoptimize_task(office, vehicles, stops, planned_multiplier):
 
     now = datetime.now()
     current_multiplier = predictor.predict_multiplier(hour=now.hour, day_of_week=now.weekday())
+    
+    # Validate multiplier: clamp between 0.5x and 2.0x to prevent calculation errors
+    current_multiplier = max(0.5, min(2.0, current_multiplier))
+    
     drift = abs(current_multiplier - planned_multiplier)
 
     if drift > 0.15:

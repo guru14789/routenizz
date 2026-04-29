@@ -196,6 +196,20 @@ class ReOptimizationService:
         )
         logger.info("[REOPT] Route update published to frontend.")
 
+    async def get_active_routes(self) -> dict:
+        """
+        Retrieves currently active routes from Redis cache.
+        Used by the Weather Watchdog to evaluate conditions along paths.
+        """
+        active_json = await self.redis.get(self.active_routes_cache_key)
+        if not active_json:
+            return {}
+        try:
+            return json.loads(active_json)
+        except Exception as e:
+            logger.error(f"[REOPT] Failed to parse active routes from cache: {e}")
+            return {}
+
     async def stop(self):
         self.running = False
         await self.redis.aclose()
