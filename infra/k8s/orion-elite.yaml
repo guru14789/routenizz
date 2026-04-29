@@ -1,0 +1,250 @@
+# ORION-ELITE: Kubernetes Deployment Manifests — PHASE 5
+# Deploy to any K8s cluster: kubectl apply -f infra/k8s/
+---
+# ── ConfigMap ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orion-config
+  namespace: default
+data:
+  OSRM_URL: "https://router.project-osrm.org"
+  ALLOWED_ORIGINS: "http://localhost:5173,https://your-domain.com"
+  PROJECT_NAME: "ORION-ELITE"
+---
+# ── Redis Deployment ──────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: redis}
+  template:
+    metadata:
+      labels: {app: redis}
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests: {memory: "128Mi", cpu: "100m"}
+            limits:   {memory: "256Mi", cpu: "500m"}
+          command: ["redis-server", "--appendonly", "yes"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: default
+spec:
+  selector: {app: redis}
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+# ── PostgreSQL Deployment ─────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: postgres}
+  template:
+    metadata:
+      labels: {app: postgres}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "tnimpact"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: {name: orion-secrets, key: POSTGRES_USER}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: orion-secrets, key: POSTGRES_PASSWORD}
+          resources:
+            requests: {memory: "256Mi", cpu: "200m"}
+            limits:   {memory: "1Gi",   cpu: "1000m"}
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  selector: {app: postgres}
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# ── PVC for PostgreSQL ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# ── Backend Deployment ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orion-backend
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: orion-backend}
+  template:
+    metadata:
+      labels: {app: orion-backend}
+    spec:
+      containers:
+        - name: backend
+          image: your-registry/orion-backend:3.0.0
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: {name: orion-config}
+            - secretRef: {name: orion-secrets}
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/tnimpact"
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+          resources:
+            requests: {memory: "512Mi", cpu: "500m"}
+            limits:   {memory: "2Gi",   cpu: "2000m"}
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orion-backend
+  namespace: default
+spec:
+  selector: {app: orion-backend}
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# ── Celery Worker Deployment ──────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orion-worker
+  namespace: default
+spec:
+  replicas: 3    # Scale workers for enterprise VRP load
+  selector:
+    matchLabels: {app: orion-worker}
+  template:
+    metadata:
+      labels: {app: orion-worker}
+    spec:
+      containers:
+        - name: worker
+          image: your-registry/orion-backend:3.0.0
+          command:
+            - celery
+            - -A
+            - app.celery_worker.celery_app
+            - worker
+            - --loglevel=info
+            - --concurrency=4
+          envFrom:
+            - configMapRef: {name: orion-config}
+            - secretRef: {name: orion-secrets}
+          env:
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/tnimpact"
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+          resources:
+            requests: {memory: "1Gi",  cpu: "1000m"}
+            limits:   {memory: "4Gi",  cpu: "4000m"}
+---
+# ── Horizontal Pod Autoscaler for workers ─────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: orion-worker-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: orion-worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+# ── Ingress ───────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: orion-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"       # For SSE
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [your-domain.com]
+      secretName: orion-tls
+  rules:
+    - host: your-domain.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: orion-backend
+                port: {number: 8000}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: orion-frontend
+                port: {number: 5173}

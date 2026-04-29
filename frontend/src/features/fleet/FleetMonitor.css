@@ -1,0 +1,170 @@
+/* ── FleetMonitor.css ── ORION-ELITE Live Fleet Dashboard */
+
+.fm-container {
+  display: flex; flex-direction: column; height: 100%;
+  background: transparent; color: #e2e8f0; font-family: 'Inter', sans-serif;
+}
+
+/* KPI Bar */
+.fm-kpi-bar {
+  display: flex; gap: 0; padding: 0.75rem 1.5rem; flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255,255,255,0.07); align-items: center;
+}
+.fm-kpi-card {
+  flex: 1; min-width: 80px; text-align: center; padding: 0.25rem 0.5rem;
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+.fm-kpi-card:last-of-type { border-right: none; }
+.fm-kpi-value { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+.fm-kpi-label { font-size: 0.65rem; color: rgba(255,255,255,0.35); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.fm-kpi-actions { display: flex; gap: 0.4rem; margin-left: 1rem; align-items: center; flex-shrink: 0; }
+.fm-refresh-btn, .fm-auto-btn, .fm-emergency-btn {
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 7px;
+  background: rgba(255,255,255,0.04); color: #94a3b8;
+  padding: 0.35rem 0.65rem; cursor: pointer; font-size: 0.72rem;
+  display: flex; align-items: center; gap: 0.3rem; transition: all 0.2s;
+}
+.fm-refresh-btn:hover { background: rgba(99,102,241,0.15); color: #818cf8; }
+.fm-refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+.fm-auto-btn.on { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.3); }
+.fm-auto-btn.off { color: rgba(255,255,255,0.3); }
+.fm-emergency-btn {
+  background: rgba(239,68,68,0.1); color: #f87171; border-color: rgba(239,68,68,0.25);
+}
+.fm-emergency-btn:hover { background: rgba(239,68,68,0.2); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Notice */
+.fm-notice {
+  padding: 0.5rem 1.5rem; font-size: 0.78rem; font-weight: 500;
+  animation: slideIn 0.3s ease;
+}
+.fm-notice.success { background: rgba(16,185,129,0.1); color: #10b981; }
+.fm-notice.error { background: rgba(239,68,68,0.1); color: #f87171; }
+.fm-notice.warn { background: rgba(245,158,11,0.1); color: #fbbf24; }
+.fm-notice.info { background: rgba(99,102,241,0.1); color: #818cf8; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Body layout */
+.fm-body {
+  display: grid; grid-template-columns: 1fr 1.2fr; flex: 1;
+  overflow: hidden; gap: 0;
+}
+
+/* Left: Vehicle Cards */
+.fm-vehicles-col {
+  border-right: 1px solid rgba(255,255,255,0.07);
+  overflow-y: auto; padding: 0.75rem 1rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.fm-col-header {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.3); padding: 0 0.25rem 0.25rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.fm-exc-count {
+  background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 700;
+  padding: 0.1rem 0.4rem; border-radius: 10px; min-width: 18px; text-align: center;
+}
+.fm-vehicle-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px; padding: 0.7rem 0.9rem; cursor: pointer; transition: all 0.2s;
+}
+.fm-vehicle-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(99,102,241,0.2); }
+.fm-vehicle-card.selected { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.07); }
+.fm-vehicle-card.exception { border-color: rgba(239,68,68,0.3); }
+.fm-vc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.fm-vc-id { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 700; color: #e2e8f0; }
+.fm-ev-badge {
+  font-size: 0.6rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px;
+  background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);
+}
+.fm-vc-progress-pct { font-size: 0.9rem; font-weight: 800; }
+.fm-progress-track {
+  height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-bottom: 0.5rem;
+}
+.fm-progress-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.fm-vc-stats { display: flex; gap: 0.6rem; font-size: 0.7rem; flex-wrap: wrap; }
+.fm-stat { display: flex; align-items: center; gap: 0.2rem; }
+.fm-stat.done { color: #10b981; }
+.fm-stat.pending { color: #94a3b8; }
+.fm-stat.failed { color: #f87171; }
+.fm-stat.dist { color: rgba(255,255,255,0.35); margin-left: auto; }
+.fm-stat.cost { color: #10b981; }
+.fm-next-stop {
+  font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-top: 0.35rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fm-exception-badge {
+  display: flex; align-items: center; gap: 0.3rem; margin-top: 0.4rem;
+  font-size: 0.68rem; color: #f87171; background: rgba(239,68,68,0.1);
+  padding: 0.2rem 0.5rem; border-radius: 6px;
+}
+
+/* Right Column */
+.fm-right-col { overflow-y: auto; display: flex; flex-direction: column; gap: 0; }
+.fm-section { padding: 0.75rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
+
+/* Exceptions */
+.fm-exc-card {
+  display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.55rem 0.5rem;
+  border-radius: 8px; cursor: pointer; transition: background 0.2s;
+}
+.fm-exc-card:hover { background: rgba(255,255,255,0.04); }
+.fm-exc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.fm-exc-body { flex: 1; }
+.fm-exc-msg { font-size: 0.78rem; font-weight: 600; color: #e2e8f0; }
+.fm-exc-meta { font-size: 0.68rem; color: rgba(255,255,255,0.35); margin-top: 0.1rem; }
+.fm-exc-type { font-size: 0.65rem; color: rgba(255,255,255,0.3); text-align: right; white-space: nowrap; }
+
+/* Intervention Panel */
+.fm-intervention-panel {
+  padding: 0.9rem 1rem; background: rgba(99,102,241,0.05);
+  border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; flex-direction: column; gap: 0.65rem;
+}
+.fm-int-header {
+  display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; color: #e2e8f0;
+}
+.fm-int-header strong { color: #818cf8; }
+.fm-int-close {
+  margin-left: auto; background: none; border: none; color: rgba(255,255,255,0.3);
+  cursor: pointer; font-size: 0.9rem; padding: 0.1rem 0.3rem;
+}
+.fm-int-close:hover { color: #f87171; }
+.fm-int-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.fm-int-action-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.55rem;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.5);
+  font-size: 0.7rem;
+}
+.fm-int-action-btn:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+.fm-int-action-btn.active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.35); color: #818cf8; }
+.fm-int-icon { font-size: 1rem; }
+.fm-int-label { font-weight: 600; font-size: 0.72rem; }
+.fm-int-field { display: flex; flex-direction: column; gap: 0.25rem; }
+.fm-int-field label { font-size: 0.7rem; color: rgba(255,255,255,0.4); }
+.fm-int-field select, .fm-int-field textarea {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 7px; color: #e2e8f0; padding: 0.4rem 0.65rem; font-size: 0.78rem;
+  outline: none; resize: none; font-family: inherit;
+}
+.fm-int-field select:focus, .fm-int-field textarea:focus { border-color: rgba(99,102,241,0.4); }
+.fm-dispatch-btn {
+  background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff;
+  border: none; border-radius: 8px; padding: 0.55rem;
+  font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+}
+.fm-dispatch-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(99,102,241,0.3); }
+.fm-dispatch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Performance Grid */
+.fm-post-route { }
+.fm-perf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; }
+.fm-perf-metric {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px; padding: 0.6rem 0.75rem; text-align: center;
+}
+.fm-perf-val { font-size: 1.1rem; font-weight: 800; color: #818cf8; }
+.fm-perf-label { font-size: 0.65rem; color: rgba(255,255,255,0.35); margin-top: 0.15rem; }
+.fm-empty { font-size: 0.78rem; color: rgba(255,255,255,0.25); padding: 1rem 0.25rem; text-align: center; }

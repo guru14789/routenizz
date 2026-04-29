@@ -1,0 +1,160 @@
+# ORION-ELITE: Full Production Docker Compose
+# Runs: Backend, Celery Worker, Redis, PostgreSQL, Nginx, Frontend
+# Usage:
+#   docker compose up --build              # Start all services
+#   docker compose up --scale worker=3     # Scale workers for enterprise load
+#   docker compose logs -f backend         # Stream logs
+
+version: "3.9"
+
+networks:
+  orion_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  ml_models_vol:
+
+services:
+
+  # ── 1. PostgreSQL (Primary DB) ───────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: orion_postgres
+    networks: [orion_net]
+    environment:
+      POSTGRES_DB: tnimpact
+      POSTGRES_USER: ${POSTGRES_USER:-tnimpact}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tnimpact_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tnimpact}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── 2. Redis (Broker + Cache + Pub/Sub) ─────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: orion_redis
+    networks: [orion_net]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── 3. FastAPI Backend (ORION-ELITE Core) ───────────────────────────────────
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: orion_backend
+    networks: [orion_net]
+    ports:
+      - "8001:8000"
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tnimpact}:${POSTGRES_PASSWORD:-tnimpact_secret}@postgres:5432/tnimpact
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend/app/ml/models:/app/ml_models:ro
+      - ml_models_vol:/app/ml_models_cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ── 4. Celery Worker (Async VRP + Re-Opt Tasks) ──────────────────────────────
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: orion_worker
+    networks: [orion_net]
+    command: >
+      celery -A app.celery_worker.celery_app worker
+      --loglevel=info
+      --concurrency=4
+      --queues=celery,vrp_tasks,reopt_tasks
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-tnimpact}:${POSTGRES_PASSWORD:-tnimpact_secret}@postgres:5432/tnimpact
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+      - ../backend/app/ml/models:/app/ml_models:ro
+    restart: unless-stopped
+
+  # ── 5. Celery Beat (Scheduled Re-Opt every 5min) ─────────────────────────────
+  beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: orion_beat
+    networks: [orion_net]
+    command: celery -A app.celery_worker.celery_app beat --loglevel=info
+    env_file: ../.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── 6. React Frontend ─────────────────────────────────────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: orion_frontend
+    networks: [orion_net]
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    env_file: ../.env
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8001
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── 7. Nginx API Gateway ──────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: orion_nginx
+    networks: [orion_net]
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/orion.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped

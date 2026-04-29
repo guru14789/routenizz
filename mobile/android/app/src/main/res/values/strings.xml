@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TNImpact</string>
+    <string name="title_activity_main">TNImpact</string>
+    <string name="package_name">com.varshinidevaraju.tnimpact</string>
+    <string name="custom_url_scheme">com.varshinidevaraju.tnimpact</string>
+</resources>

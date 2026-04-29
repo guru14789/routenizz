@@ -1,0 +1,59 @@
+# Logs
+logs/
+*.log
+
+# Runtime files created by start.sh
+.run_pids
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data & Models
+ml_models/training_data.csv
+
+# Large analysis output images (generated artefacts)
+*.png
+!public/**/*.png
+
+# Reports / documents generated outside source control
+src/components/*.docx
+docs/*.docx
+
+# Capacitor Android build output (generated — do not track)
+android/
+
+# Capacitor config (auto-generated, environment-specific)
+# capacitor.config.json  ← keep this tracked so mobile builds work
+
+# Databases
+*.db
+tn_logistics.db

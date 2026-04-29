@@ -1,0 +1,207 @@
+.auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    padding: 16px;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 380px; /* More compact width */
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0px;
+    padding: 32px; /* Reduced padding for density */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+.auth-header h1 {
+    font-size: 24px; /* Scaled down for professional look */
+    font-weight: 900;
+    color: #000000;
+    margin-bottom: 8px;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+}
+
+.auth-header p {
+    color: #64748b;
+    font-size: 13px; /* More compact body text */
+    margin-bottom: 24px;
+    font-weight: 500;
+}
+
+.role-selector {
+    display: flex;
+    border: 1px solid #000000; /* Thinner border for professional feel */
+    padding: 0;
+    margin-bottom: 24px;
+}
+
+.role-btn {
+    flex: 1;
+    padding: 10px; /* Compact padding */
+    border: none;
+    background: #ffffff;
+    color: #000000;
+    font-weight: 800;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.role-btn.active {
+    background: #000000;
+    color: #ffffff;
+}
+
+.auth-error {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 10px;
+    font-size: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #fee2e2;
+    font-weight: 600;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Tightened gap */
+}
+
+.form-group label {
+    display: block;
+    font-size: 10px;
+    font-weight: 900;
+    color: #000000;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    letter-spacing: 0.1em;
+}
+
+.form-group input {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #e2e8f0; /* Single px border for cleaner look */
+    border-radius: 0;
+    padding: 10px 14px;
+    color: #000000;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #000000;
+}
+
+.auth-submit-btn {
+    background: #000000;
+    color: #ffffff;
+    border: none;
+    border-radius: 0;
+    padding: 12px;
+    font-weight: 900;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.auth-submit-btn:hover {
+    background: #1a1a1a;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.auth-divider span {
+    padding: 0 12px;
+}
+
+.google-auth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    background: #ffffff;
+    color: #000000;
+    border: 1px solid #000000;
+    border-radius: 0;
+    padding: 10px;
+    font-weight: 800;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.google-auth-btn img {
+    width: 16px;
+    height: 16px;
+}
+
+.google-auth-btn:hover {
+    background: #f8fafc;
+}
+
+.auth-footer {
+    margin-top: 24px;
+    text-align: center;
+}
+
+.toggle-auth-btn {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.toggle-auth-btn:hover {
+    color: #000000;
+}
+
+/* ── Mobile Optimization ── */
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 24px;
+        max-width: 100%;
+        border: none;
+        box-shadow: none;
+    }
+    
+    .auth-header h1 {
+        font-size: 20px;
+    }
+}
