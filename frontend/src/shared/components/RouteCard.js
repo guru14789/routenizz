@@ -3,14 +3,23 @@ import { getFleetColor } from '../utils/colors';
 
 const RouteCard = ({ order, index, onDelete }) => {
     const priorityColors = {
-        High: '#ff4d4d',
-        Medium: '#ffa500',
-        Low: '#2ecc71'
+        High: '#000000',
+        Medium: '#666666',
+        Low: '#999999'
     };
+
+    const cardColor = getFleetColor(order.driverId);
+    const isWhiteBackground = cardColor.toLowerCase() === '#ffffff';
 
     return (
         <div className="route-card">
-            <div className="card-index-box" style={{ backgroundColor: getFleetColor(order.driverId) }}>
+            <div 
+                className="card-index-box" 
+                style={{ 
+                    backgroundColor: cardColor,
+                    color: isWhiteBackground ? '#000000' : '#ffffff'
+                }}
+            >
                 <span className="index-num">{index + 1}</span>
             </div>
             <div className="card-content">
@@ -33,7 +42,10 @@ const RouteCard = ({ order, index, onDelete }) => {
                 <div className="card-footer">
                     <span
                         className="priority-badge"
-                        style={{ backgroundColor: priorityColors[order.priority] }}
+                        style={{ 
+                            backgroundColor: priorityColors[order.priority] || '#333',
+                            color: priorityColors[order.priority] === '#ffffff' ? '#000000' : '#ffffff'
+                        }}
                     >
                         {order.priority}
                     </span>
@@ -42,9 +54,9 @@ const RouteCard = ({ order, index, onDelete }) => {
                         <span
                             className="fleet-badge"
                             style={{
-                                backgroundColor: 'transparent',
-                                border: `1px solid ${getFleetColor(order.driverId)}`,
-                                color: getFleetColor(order.driverId),
+                                backgroundColor: isWhiteBackground ? '#ffffff' : 'transparent',
+                                border: `1px solid ${cardColor}`,
+                                color: isWhiteBackground ? '#000000' : cardColor,
                                 fontWeight: '700'
                             }}
                         >

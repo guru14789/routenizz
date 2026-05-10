@@ -11,6 +11,7 @@ import {
 
     collection,
     addDoc,
+    setDoc,
     getDocs,
     updateDoc,
     deleteDoc,
@@ -32,7 +33,8 @@ const OFFICIAL_ADMINS = [
     'varshini@gmail.com',
     'sureshkumar@gmail.com',
     'sreekumar.career@gmail.com',
-    'admin@tnimpact.com'
+    'admin@tnimpact.com',
+    'admin@routenizz.com'
 ];
 
 /**
@@ -46,7 +48,8 @@ const resolveRole = async (user, firestoreRole = null) => {
         email.includes('admin') || 
         email.includes('suresh') ||
         email.includes('sree') ||
-        email.endsWith('@tnimpact.com')) {
+        email.endsWith('@tnimpact.com') ||
+        email.endsWith('@routenizz.com')) {
         return 'admin';
     }
     
@@ -141,19 +144,21 @@ export const subscribeToOrders = (callback) => {
     const q = collection(db, "orders");
     return onSnapshot(q, 
         (snapshot) => {
-            const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const orders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             callback(orders);
         },
         (error) => {
             console.error("[Firestore] Orders subscription error:", error);
-            // Don't clear callback if it's just a permission issue during reload
         }
     );
 };
 
 export const addOrder = (order) => {
-    return addDoc(collection(db, "orders"), {
+    const orderId = order.id || `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const orderRef = doc(db, "orders", orderId);
+    return setDoc(orderRef, {
         ...order,
+        id: orderId,
         createdAt: new Date().toISOString()
     });
 };
@@ -172,7 +177,7 @@ export const subscribeToDrivers = (callback) => {
     const q = collection(db, "drivers");
     return onSnapshot(q, 
         (snapshot) => {
-            const drivers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const drivers = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             callback(drivers);
         },
         (error) => {
@@ -182,8 +187,11 @@ export const subscribeToDrivers = (callback) => {
 };
 
 export const addDriver = (driver) => {
-    return addDoc(collection(db, "drivers"), {
+    const driverId = driver.id || `DRV-${Date.now()}`;
+    const driverRef = doc(db, "drivers", driverId);
+    return setDoc(driverRef, {
         ...driver,
+        id: driverId,
         createdAt: new Date().toISOString()
     });
 };

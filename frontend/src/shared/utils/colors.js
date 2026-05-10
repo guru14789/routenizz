@@ -4,21 +4,13 @@
  */
 
 const FLEET_COLORS = [
-    '#f79009', // Deep Orange (Success 1) - distinct from blue preview
-    '#2e90fa', // Azure Blue
-    '#12b76a', // Emerald Green
-    '#ee46bc', // Hot Pink
-    '#7a5af8', // Royal Purple
-    '#f04438', // Scarlet Red
-    '#00d5ff', // Cyber Cyan
-    '#17b26a', // Spring Green
-    '#9b2c2c', // Maroon
-    '#4a5568', // Charcoal
-    '#fb6514', // Sunset Orange
-    '#6690ff', // Soft Blue
-    '#32d583', // Mint Green
-    '#9e77ed', // Lavender
-    '#f04438'  // Rose Red
+    '#000000', // Black
+    '#1e293b', // Slate 800
+    '#0f172a', // Slate 900
+    '#334155', // Slate 700
+    '#475467', // Slate 600
+    '#64748b', // Slate 500
+    '#000000'  // Pure Black
 ];
 
 /**
@@ -28,7 +20,7 @@ const FLEET_COLORS = [
  */
 export const getFleetColor = (driverId) => {
     // No gray fallbacks - use vibrant MAGENTA if ID is missing (so it's impossible to miss)
-    if (driverId === undefined || driverId === null || driverId === 'unassigned') return '#ff00ff';
+    if (driverId === undefined || driverId === null || driverId === 'unassigned') return '#111827';
     const hash = String(driverId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return FLEET_COLORS[hash % FLEET_COLORS.length];
 };

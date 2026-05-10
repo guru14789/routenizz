@@ -2,8 +2,8 @@ import pytest
 import asyncio
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.utils.database import Base, engine
-from app.utils.firebase_auth import get_firebase_user
+from app.db.database import Base, engine
+from app.core.auth import require_admin
 
 # --- MOCK AUTH FOR TESTING ---
 # This allows us to bypass actual Firebase network calls during tests
@@ -28,7 +28,7 @@ async def setup_db():
 @pytest.fixture
 async def client():
     # Override the auth dependency with our mock
-    app.dependency_overrides[get_firebase_user] = mock_get_firebase_user
+    app.dependency_overrides[require_admin] = mock_get_firebase_user
     
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac

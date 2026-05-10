@@ -174,8 +174,8 @@
     align-items: center;
     gap: 0.25rem;
     font-weight: 700;
-    color: #00ca72;
-    /* Subtle success green for positive trends */
+    color: #888888;
+    /* Neutral gray for monochromatic look */
 }
 
 /* Color Themes & Glow Effects */
@@ -235,6 +235,7 @@
         transform: scale(1);
     }
 }
+
 
 .pop-anim {
     animation: pop-anim 0.4s ease-out;

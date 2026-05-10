@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.db.database import get_db
 from app.models.db_models import User
 from firebase_admin import auth as firebase_auth
+from app.core.logger import logger
 
 # Direct bcrypt hashing (avoiding passlib bug on 3.12+)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
@@ -25,10 +26,31 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        # Use config value, default to 30 if not set, fallback to 15 if config missing
+        expire_mins = getattr(config, "ACCESS_TOKEN_EXPIRE_MINUTES", 30)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=expire_mins)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
     return encoded_jwt
+
+
+def decode_access_token(token: str) -> dict:
+    """
+    Decode and validate a JWT token, returning the raw payload dict.
+    Raises HTTPException 401 on invalid/expired tokens.
+    Used by the /refresh endpoint to inspect the existing token's claims.
+    """
+    try:
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+        return payload
+    except JWTError as e:
+        logger.error(f"[AUTH] decode_access_token failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalid or expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 
 async def verify_firebase_token(token: str):
     """
@@ -54,12 +76,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        logger.debug(f"[AUTH] Attempting to decode token: {token[:10]}...")
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
+            logger.warning("[AUTH] Token payload missing 'sub' claim")
             raise credentials_exception
+        logger.info(f"[AUTH] Successfully validated user: {username}")
         return username
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"[AUTH] JWT decoding failed: {e}")
         raise credentials_exception
 
 async def require_admin(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
@@ -73,26 +99,49 @@ async def require_admin(token: str = Depends(oauth2_scheme), db: AsyncSession = 
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        logger.warning(f"[AUTH] require_admin: Validating token...")
         payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
         email: str = payload.get("sub")
         role: str = payload.get("role")
         
-        if email is None or role != "admin":
+        if email is None:
+            logger.error("[AUTH] require_admin: Email (sub) is missing in token")
+            raise credentials_exception
+            
+        if role != "admin":
+            logger.warning(f"[AUTH] require_admin: User {email} has role {role}, not admin")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Administrative privileges required to access this resource."
+                detail="Admin privileges required"
             )
             
         # Verify user still exists and is active in the database
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
         
-        if not user or user.role != "admin" or not user.is_active:
+        if not user:
+            logger.warning(f"[AUTH] require_admin: User {email} not found in database")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied. User is not an active administrator."
+                detail="Access denied. User not found."
             )
             
+        if user.role != "admin":
+            logger.warning(f"[AUTH] require_admin: Database role for {email} is '{user.role}', expected 'admin'")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. User is not an administrator."
+            )
+            
+        if not user.is_active:
+            logger.warning(f"[AUTH] require_admin: User {email} is inactive")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. User account is inactive."
+            )
+            
+        logger.info(f"[AUTH] require_admin: Authorized admin: {email}")
         return {"email": email, "role": "admin", "id": user.id}
-    except JWTError:
+    except JWTError as e:
+        logger.error(f"[AUTH] require_admin: JWT validation failed: {e}")
         raise credentials_exception

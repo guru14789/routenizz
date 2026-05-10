@@ -78,8 +78,9 @@ export const recalculateSystemRoute = async ({
                     optimization_score: result.optimization_score,
                     vehicles_used: result.summary?.total_vehicles_used,
                     breakdown: {
-                        fuel: result.cost_breakdown?.Fuel,
-                        labor: result.cost_breakdown?.Labour
+                        fuel: result.cost_breakdown?.fuel,
+                        labor: result.cost_breakdown?.labor,
+                        wear: result.cost_breakdown?.wear
                     }
                 },
                 // Strategy 5: Pass weather intelligence to the frontend

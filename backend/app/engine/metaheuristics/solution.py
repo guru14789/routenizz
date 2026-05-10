@@ -91,3 +91,18 @@ class RouteSolution:
                 if n != 0:
                     assigned.add(n)
         return list(all_nodes - assigned)
+
+    def get_all_customers(self) -> List[int]:
+        """Returns all customer node indices currently assigned to routes."""
+        customers = []
+        for route in self.routes:
+            for n in route:
+                if n != 0:
+                    customers.append(n)
+        return customers
+
+    def get_route_cost(self, v_idx: int) -> float:
+        """Returns the total travel cost for a specific vehicle route."""
+        if v_idx < 0 or v_idx >= len(self.routes):
+            return 0.0
+        return self.route_travel_cost(self.routes[v_idx])

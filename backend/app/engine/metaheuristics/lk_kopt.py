@@ -25,155 +25,154 @@ from app.core.logger import logger  # type: ignore
 
 class LKOptimizer:
     """
-    Lin-Kernighan k-Opt for multi-vehicle routing.
-    Operates on each vehicle's route independently.
+    Advanced Lin-Kernighan k-Opt for structural route improvement.
+    Uses sequential search with gain-criterion pruning.
     """
 
-    #: Maximum number of improvement passes per route
-    MAX_PASSES: int = 50
-    #: Per-vehicle hard time limit (seconds)
+    MAX_PASSES: int = 100
     TIME_LIMIT_PER_VEHICLE: float = 0.5
+    K_MAX: int = 5  # Practical limit for sequential search in VRP context
 
-    # ─── Public entry point ────────────────────────────────────────────────────
     def optimize(self, solution: RouteSolution) -> tuple[RouteSolution, float]:
-        """
-        Apply k-Opt to every vehicle route in `solution`.
-        Returns (improved_solution, total_improvement_pct).
-        """
         original_cost = solution.compute_total_cost()
         improved = solution.clone()
 
         for v_idx, route in enumerate(improved.routes):
-            if len(route) <= 3:
-                # Route has 0 or 1 customer stop — nothing to improve
-                continue
-
-            k = 3 if len(route) > 9 else 2  # auto-select k
-            if k == 3:
-                improved.routes[v_idx] = self._three_opt(route, improved.matrix)
-            else:
-                improved.routes[v_idx] = self._two_opt(route, improved.matrix)
+            if len(route) < 5: continue  # Need at least 3 customer nodes for non-trivial k-opt
+            improved.routes[v_idx] = self._lin_kernighan_search(route, improved.matrix)
 
         new_cost = improved.compute_total_cost()
-        improvement_pct = 0.0
-        if original_cost > 0:
-            improvement_pct = round((original_cost - new_cost) / original_cost * 100, 2)
-
-        logger.info(
-            f"[LK k-Opt] Cost {original_cost:.0f} → {new_cost:.0f} "
-            f"({improvement_pct:+.2f}%)"
-        )
+        improvement_pct = round((original_cost - new_cost) / original_cost * 100, 2) if original_cost > 0 else 0
+        
+        logger.info(f"[LK k-Opt] Cost {original_cost:.0f} → {new_cost:.0f} ({improvement_pct:+.2f}%)")
         return improved, improvement_pct
 
-    # ─── 2-Opt ────────────────────────────────────────────────────────────────
-    def _two_opt(self, route: List[int], matrix: List[List[int]]) -> List[int]:
-        """
-        Standard 2-Opt: try reversing every sub-segment [i..j].
-        Accepts the first improving move (sequential search).
-        """
-        best = route[:]
+    def _lin_kernighan_search(self, route: List[int], matrix: List[List[int]]) -> List[int]:
+        """Core Lin-Kernighan sequential search loop."""
+        best_route = route[:]
         deadline = time.monotonic() + self.TIME_LIMIT_PER_VEHICLE
-        n = len(best)
-
+        
         for _ in range(self.MAX_PASSES):
-            if time.monotonic() > deadline:
-                break
+            if time.monotonic() > deadline: break
             improved = False
-            for i in range(1, n - 2):
-                for j in range(i + 1, n - 1):
-                    # Cost of existing edges: (i-1 → i) + (j → j+1)
-                    d_old = (
-                        matrix[best[i - 1]][best[i]]
-                        + matrix[best[j]][best[j + 1]]
-                    )
-                    # Cost after reversing segment [i..j]: (i-1 → j) + (i → j+1)
-                    d_new = (
-                        matrix[best[i - 1]][best[j]]
-                        + matrix[best[i]][best[j + 1]]
-                    )
-                    if d_new < d_old:
-                        best[i : j + 1] = best[i : j + 1][::-1]
-                        improved = True
-                        break  # sequential search: restart after each improvement
-                if improved:
+            
+            # For each starting node in the route
+            for i in range(len(best_route) - 1):
+                # Try to find a sequence of swaps starting from edge (i, i+1)
+                new_route, gain = self._find_best_move(best_route, i, matrix)
+                if gain > 0.1:
+                    best_route = new_route
+                    improved = True
                     break
-            if not improved:
-                break
+            
+            if not improved: break
+        return best_route
 
-        return best
-
-    # ─── 3-Opt ────────────────────────────────────────────────────────────────
-    def _three_opt(self, route: List[int], matrix: List[List[int]]) -> List[int]:
+    def _find_best_move(self, route: List[int], t1_idx: int, matrix: List[List[int]]) -> tuple[List[int], float]:
         """
-        3-Opt: considers all triples of edges and evaluates the 7 possible
-        reconnection patterns.  Accepts the first improving reconnection.
-
-        Notation follows Lin-Kernighan (1973):
-            Segment A = route[0..i], B = route[i+1..j], C = route[j+1..k], D = route[k+1..]
+        Finds an improving k-opt move using sequential search.
+        Ref: Lin-Kernighan (1973) gain criterion.
         """
-        best = route[:]
-        n = len(best)
-        deadline = time.monotonic() + self.TIME_LIMIT_PER_VEHICLE
+        n = len(route)
+        t1_idx = t1_idx
+        t2_idx = t1_idx + 1
+        t1 = route[t1_idx]
+        t2 = route[t2_idx]
+        
+        best_candidate = route
+        max_gain = 0.0
+        
+        # Step 2: Choose t3 such that gain1 = matrix[t1][t2] - matrix[t2][t3] > 0
+        for t3_idx in range(n - 1):
+            if t3_idx == t1_idx or t3_idx == t2_idx: continue
+            
+            t3 = route[t3_idx]
+            gain1 = matrix[t1][t2] - matrix[t2][t3]
+            if gain1 <= 0: continue
+            
+            # Step 3: Choose t4 such that t4 is adjacent to t3
+            for direction in [-1, 1]:
+                t4_idx = t3_idx + direction
+                if t4_idx < 0 or t4_idx >= n - 1 or t4_idx == t1_idx or t4_idx == t2_idx: continue
+                
+                t4 = route[t4_idx]
+                # Gain if we close the move here (2-opt)
+                # Edges removed: (t1,t2), (t3,t4). Edges added: (t2,t3), (t4,t1)
+                closing_gain = gain1 + (matrix[t3][t4] - matrix[t4][t1])
+                
+                if closing_gain > max_gain:
+                    # Verify feasibility (2-opt always preserves depot if indices are within bounds)
+                    candidate = self._apply_2opt(route, t1_idx, t3_idx)
+                    if candidate[0] == 0 and candidate[-1] == 0:
+                        max_gain = closing_gain
+                        best_candidate = candidate
+                
+                # Recursive Step: Try to extend to 3-opt
+                if closing_gain > 0:
+                    for t5_idx in range(n - 1):
+                        if t5_idx in [t1_idx, t2_idx, t3_idx, t4_idx]: continue
+                        t5 = route[t5_idx]
+                        gain2 = gain1 + (matrix[t3][t4] - matrix[t4][t5])
+                        if gain2 <= 0: continue
+                        
+                        for d2 in [-1, 1]:
+                            t6_idx = t5_idx + d2
+                            if t6_idx < 0 or t6_idx >= n - 1 or t6_idx in [t1_idx, t2_idx, t3_idx, t4_idx]: continue
+                            t6 = route[t6_idx]
+                            closing_gain_3 = gain2 + (matrix[t5][t6] - matrix[t6][t1])
+                            
+                            if closing_gain_3 > max_gain:
+                                candidate = self._apply_3opt(route, t1_idx, t3_idx, t5_idx, matrix)
+                                if candidate[0] == 0 and candidate[-1] == 0:
+                                    max_gain = closing_gain_3
+                                    best_candidate = candidate
+                                
+        return best_candidate, max_gain
 
-        for _ in range(self.MAX_PASSES):
-            if time.monotonic() > deadline:
-                break
-            improved = False
+    def _apply_2opt(self, route: List[int], i: int, j: int) -> List[int]:
+        """Performs a 2-opt swap (reversing segment)."""
+        new_route = route[:]
+        low, high = sorted([i + 1, j])
+        new_route[low : high + 1] = new_route[low : high + 1][::-1]
+        return new_route
 
-            for i in range(1, n - 4):
-                if time.monotonic() > deadline:
-                    break
-                for j in range(i + 1, n - 2):
-                    for k in range(j + 1, n - 1):
-                        # Current three edges
-                        e1 = matrix[best[i - 1]][best[i]]
-                        e2 = matrix[best[j]][best[j + 1]]
-                        e3 = matrix[best[k]][best[k + 1]] if k + 1 < n else 0
-                        d0 = e1 + e2 + e3  # current cost
+    def _apply_3opt(self, route: List[int], i: int, j: int, k: int, matrix: List[List[int]]) -> List[int]:
+        """Applies the best of the 7 improving 3-opt reconnections."""
+        idx = sorted([i, j, k])
+        A = route[:idx[0]+1]
+        B = route[idx[0]+1:idx[1]+1]
+        C = route[idx[1]+1:idx[2]+1]
+        D = route[idx[2]+1:]
+        
+        # All 7 possible reconnections for 3-opt
+        candidates = [
+            A + B + C[::-1] + D,
+            A + B[::-1] + C + D,
+            A + C + B + D,
+            A + C[::-1] + B[::-1] + D,
+            A + B[::-1] + C[::-1] + D,
+            A + C + B[::-1] + D,
+            A + C[::-1] + B + D
+        ]
+        
+        best_cand = route
+        best_cost = self._calc_route_cost(route, matrix)
+        
+        for cand in candidates:
+            if cand[0] != 0 or cand[-1] != 0: continue
+            cost = self._calc_route_cost(cand, matrix)
+            if cost < best_cost:
+                best_cost = cost
+                best_cand = cand
+        return best_cand
 
-                        # Segments
-                        seg_A = best[:i]
-                        seg_B = best[i : j + 1]
-                        seg_C = best[j + 1 : k + 1]
-                        seg_D = best[k + 1 :]
+    def _calc_route_cost(self, route: List[int], matrix: List[List[int]]) -> float:
+        cost = 0.0
+        for i in range(len(route) - 1):
+            cost += matrix[route[i]][route[i+1]]
+        return cost
 
-                        # Generate all reconnection candidates (7 alternatives to d0)
-                        candidates = [
-                            # 2-opt variants (flip one segment)
-                            seg_A + seg_B[::-1] + seg_C + seg_D,
-                            seg_A + seg_B + seg_C[::-1] + seg_D,
-                            # 3-opt variants (mix segments)
-                            seg_A + seg_C + seg_B + seg_D,
-                            seg_A + seg_B[::-1] + seg_C[::-1] + seg_D,
-                            seg_A + seg_C + seg_B[::-1] + seg_D,
-                            seg_A + seg_C[::-1] + seg_B + seg_D,
-                            seg_A + seg_C[::-1] + seg_B[::-1] + seg_D,
-                        ]
-
-                        for candidate in candidates:
-                            c_e1 = matrix[candidate[i - 1]][candidate[i]]
-                            c_e2 = (
-                                matrix[candidate[j]][candidate[j + 1]]
-                                if j + 1 < len(candidate)
-                                else 0
-                            )
-                            c_e3 = (
-                                matrix[candidate[k]][candidate[k + 1]]
-                                if k + 1 < len(candidate)
-                                else 0
-                            )
-                            if c_e1 + c_e2 + c_e3 < d0:
-                                best = candidate
-                                improved = True
-                                break  # sequential: first improvement wins
-                        if improved:
-                            break
-                    if improved:
-                        break
-            if not improved:
-                break
-
-        return best
+lk_optimizer = LKOptimizer()
 
 
 # Module-level singleton

@@ -72,18 +72,9 @@ const Dashboard = ({
         setJustDispatched(true); // Show the "Success" banner in the UI
         setTimeout(() => setJustDispatched(false), 10000); // Auto-hide the banner after 10 seconds
 
-        // Push a weather intelligence event to the Operational Feed
-        if (weatherSummary && weatherSummary.severity !== 'LOW') {
-            const EMOJI = { MEDIUM: '🌧️', HIGH: '⛈️' };
-            const emoji = EMOJI[weatherSummary.severity] || '🌦️';
-            const extraPct = Math.round((weatherSummary.max_multiplier - 1) * 100);
-            const feedEvent = {
-                id: Date.now(),
-                time: new Date().toLocaleTimeString([], { hour12: false }),
-                msg: `[WEATHER] ${emoji} ${weatherSummary.worst_condition?.toUpperCase()} on route — ETA +${extraPct}% (${weatherSummary.affected_count} stops)`,
-                type: 'warn'
-            };
-            setEvents(prev => [feedEvent, ...prev].slice(0, 5));
+        // Simulation feedback loop
+        if (isCalculating) {
+            // [VRP-ENGINE] Recalculating... event is already handled in the useEffect above
         }
     };
 

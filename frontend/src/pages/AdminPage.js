@@ -143,21 +143,14 @@ const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAd
                         <SidebarItem id="overview" label="Command Center" icon={<Icons.Dashboard />} />
                         <SidebarItem id="smart_router" label="AI Smart Router" icon={<Icons.AI />} />
                         <SidebarItem id="active_orders" label="Live Queue" icon={<Icons.Queue />} />
-                        <SidebarItem id="route_stops" label="Route Planner" icon={<Icons.Planner />} />
                     </div>
 
                     <div className="nav-group">
                         <div className="group-label">Management</div>
                         <SidebarItem id="drivers" label="Fleet Management" icon={<Icons.Fleet />} />
                         <SidebarItem id="analytics" label="Insights" icon={<Icons.Analytics />} />
-                        <SidebarItem id="simulation" label="Simulation" icon={<Icons.Sim />} />
+                        <SidebarItem id="simulation" label="LIVE STRESS TESTING" icon={<Icons.Sim />} />
                         <SidebarItem id="live_events" label="Live Events" icon={<Icons.Live />} />
-                    </div>
-
-                    <div className="nav-group">
-                        <div className="group-label">ORION-ELITE</div>
-                        <SidebarItem id="plan" label="Pre-Route Planner" icon={<Icons.Planner />} />
-                        <SidebarItem id="fleet_monitor" label="Fleet Monitor" icon={<Icons.Fleet />} />
                     </div>
 
                     <div className="nav-group bottom">
@@ -285,6 +278,7 @@ const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAd
                                             <span className="vrp-m-value">₹{stats.total_cost || '—'}</span>
                                         </div>
                                     </div>
+                                    {/* Weather intelligence chip removed as per user request for monochromatic dashboard */}
                                 </div>
                             )}
 
@@ -335,8 +329,28 @@ const AdminPage = ({ orders, route, setRoute, isCalculating, onRecalculate, onAd
                             apiBase={import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'}
                         />
                     ) : activeTab === 'live_events' ? (
-                        <div style={{ display: 'grid', gap: '1rem', padding: '1rem' }}>
-                            <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>REAL-TIME RE-OPTIMIZATION MONITOR</div>
+                        <div className="enterprise-monitor-view">
+                            <div className="enterprise-sub-header">
+                                <div className="brand-trace">ENTERPRISE / LIVE_EVENTS / AI-ORION-V2</div>
+                                <div className="live-metrics-ribbon">
+                                    <div className="ribbon-item">
+                                        <span className="ribbon-label">Fleet</span>
+                                        <span className="ribbon-val">{drivers.length} Units</span>
+                                    </div>
+                                    <div className="ribbon-item">
+                                        <span className="ribbon-label">Load</span>
+                                        <span className="ribbon-val">{orders.length} Tasks</span>
+                                    </div>
+                                    <div className="ribbon-item highlight">
+                                        <span className="ribbon-dot"></span>
+                                        <span className="ribbon-val">SYSTEM LIVE</span>
+                                    </div>
+                                    <div className="ribbon-item time">
+                                        <span className="ribbon-val">{clockTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="monitor-sub-label">REAL-TIME RE-OPTIMIZATION MONITOR</div>
                             <LiveEventsFeed apiBase={import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'} />
                         </div>
                     ) : activeTab === 'settings' ? (

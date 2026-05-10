@@ -39,6 +39,13 @@ const DriverManagementIcons = {
 
 const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder, onDeleteOrder, externalDrivers = [], onAddDriver, onUpdateDriver, onDeleteDriver, onRecalculate, onToggleRole, selectedDriverId }) => {
     const navigate = useNavigate();
+    
+    const getInitials = (name) => {
+        if (!name) return '??';
+        const parts = name.split(' ');
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return name.substring(0, 2).toUpperCase();
+    };
     const [searchTerm, setSearchTerm] = useState('');
     const fleet = externalDrivers.length > 0 ? externalDrivers : [];
     
@@ -134,15 +141,14 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
             vehicle,
             avatar,
         };
-
         if (editingDriver) {
             // Handle update logic using onUpdateDriver
             if (onUpdateDriver) {
                 onUpdateDriver(editingDriver.id, finalData);
             }
         } else {
-            // Handle add logic
-            const id = `DRV-${String(fleet.length + 1).padStart(3, '0')}-${Date.now().toString(36).slice(-4)}`;
+            // Generate a robust ID with fleet length + unique suffix
+            const id = `DRV-${String(fleet.length + 1).padStart(3, '0')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             const driverToAdd = {
                 ...finalData,
                 id,
@@ -254,9 +260,18 @@ const DriverManagement = ({ orders, route, setRoute, optimizedOrders, onAddOrder
 
             <div className="drivers-grid">
                 {filteredDrivers.map(driver => (
-                    <div className="driver-card" key={driver.id} style={{ borderTop: `4px solid ${getFleetColor(driver.id)}` }}>
+                    <div className="driver-card" key={driver.id} style={{ borderTop: `4px solid #e2e8f0` }}>
                         <div className="driver-card-header">
-                            <div className="driver-avatar" style={{ backgroundColor: getFleetColor(driver.id), color: '#fff' }}>{driver.avatar}</div>
+                            <div 
+                                className="driver-avatar" 
+                                style={{ 
+                                    border: `2px solid #eeeeee`, 
+                                    color: '#000000',
+                                    backgroundColor: '#ffffff'
+                                }}
+                            >
+                                {driver.avatar || getInitials(driver.name)}
+                            </div>
                             <div className="driver-info">
                                 <h3>{driver.name}</h3>
                                 <span className="driver-id">{driver.id}</span>

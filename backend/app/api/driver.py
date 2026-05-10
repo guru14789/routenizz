@@ -66,7 +66,9 @@ async def get_driver_route(driver_id: str, db: AsyncSession = Depends(get_db)):
             
         stops.append({
             "id": o.id,
+            "customer": o.customer_name,
             "customer_name": o.customer_name,
+            "address": o.address,
             "lat": o.destination_lat,
             "lng": o.destination_lng,
             "status": o.status,
@@ -77,6 +79,7 @@ async def get_driver_route(driver_id: str, db: AsyncSession = Depends(get_db)):
             "volume_m3": o.volume_m3 or 0.0,
             "demand_units": o.demand_units,
             "sequence": o.sequence_order or 0,
+            "driverId": o.assigned_vehicle_id
         })
 
     return {

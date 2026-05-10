@@ -1,5 +1,5 @@
 import pytest
-from app.routing.vrp_solver import vrp_solver
+from app.engine.vrp_solver import vrp_solver
 
 @pytest.mark.asyncio
 async def test_vrp_solver_basic():

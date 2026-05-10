@@ -36,8 +36,8 @@ async def test_unauthorized_access(client):
     """
     # Temporarily remove the override to test real failure
     from app.main import app
-    from app.utils.firebase_auth import get_firebase_user
-    del app.dependency_overrides[get_firebase_user]
+    from app.core.auth import require_admin
+    del app.dependency_overrides[require_admin]
     
     resp = await client.get("/api/v1/analytics/engine-status")
     # Should expect 403 or 401 depending on the specific middleware implementation

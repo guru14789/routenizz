@@ -306,65 +306,6 @@ const DriverView = ({
         );
     }
 
-    if (deliveryRoute.length === 0 || driverStatus === 'no_route') {
-        return (
-            <div className="driver-redesigned-screen empty-state-view">
-                {/* Animated Background Layer */}
-                <div className="premium-mesh-bg"></div>
-                
-                {/* Glassmorphic Command Terminal */}
-                <div className="glass-terminal">
-                    <div className="terminal-header">
-                        <div className="logo-orb">
-                            <span className="logo-letter">R</span>
-                            <div className="orb-glow"></div>
-                        </div>
-                        <div className="terminal-meta">
-                            <span className="version">V2.4.0 ENCRYPTION ACTIVE</span>
-                            <span className="driver-tag">ID: {driverId || 'FLEET-UNASSIGNED'}</span>
-                        </div>
-                    </div>
-
-                    <div className="terminal-body">
-                        <div className="holographic-loader">
-                            <div className="ring outer"></div>
-                            <div className="ring middle"></div>
-                            <div className="ring inner"></div>
-                            <div className="status-dot"></div>
-                        </div>
-                        
-                        <div className="message-stack">
-                            <h1 className="hero-status">Awaiting Dispatch</h1>
-                            <p className="sub-status">Synchronizing with Global Control Center...</p>
-                            <div className="typing-log">
-                                <span>{">"} ESTABLISHING SECURE CONNECTION...</span>
-                                <span>{">"} GPS SIGNAL ACQUIRED</span>
-                                <span>{">"} AWAITING NEW ORDERS</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="terminal-actions">
-                        <button className="btn-premium pulse" onClick={onToggleRole}>
-                            <div className="btn-inner">
-                                <span className="btn-text">ADMIN OVERRIDE</span>
-                                <div className="btn-glare"></div>
-                            </div>
-                        </button>
-                        <button className="btn-ghost" onClick={onLogout}>SYSTEM LOGOUT</button>
-                    </div>
-                    
-                    <div className="terminal-footer">
-                        <div className="telemetry-bar">
-                            <div className="tele-item">SIGNAL: 98%</div>
-                            <div className="tele-item">LATENCY: 14ms</div>
-                            <div className="tele-item">UPTIME: 99.9%</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className={`driver-redesigned-screen ${isNavigating ? 'nav-mode' : ''}`}>

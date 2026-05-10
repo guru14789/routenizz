@@ -18,10 +18,10 @@ const icons = {
 };
 
 const statusColor = {
-    ok:       { dot: '#22c55e', text: '#22c55e', label: 'OK' },
-    degraded: { dot: '#f59e0b', text: '#f59e0b', label: 'DEGRADED' },
+    ok:       { dot: '#ffffff', text: '#ffffff', label: 'OK' },
+    degraded: { dot: '#94a3b8', text: '#94a3b8', label: 'DEGRADED' },
     unknown:  { dot: '#6b7280', text: '#6b7280', label: '...' },
-    error:    { dot: '#ef4444', text: '#ef4444', label: 'ERROR' },
+    error:    { dot: '#475467', text: '#475467', label: 'ERROR' },
 };
 
 const depKey = {

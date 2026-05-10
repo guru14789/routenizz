@@ -19,6 +19,7 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     customer_name = Column(String)
+    address = Column(String, nullable=True)
     destination_lat = Column(Float)
     destination_lng = Column(Float)
     status = Column(String, default="pending")  # pending, assigned, in_transit, completed, failed

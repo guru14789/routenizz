@@ -5,7 +5,7 @@ Run: python scripts/seed_elite_data.py
 """
 import asyncio, random
 from sqlalchemy import delete
-from app.utils.database import async_session, engine, Base
+from app.db.database import async_session, engine, Base
 from app.models.db_models import Order, Vehicle, EVChargingStation
 
 # ── Sample Data ───────────────────────────────────────────────────────────────

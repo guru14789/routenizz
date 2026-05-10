@@ -24,7 +24,7 @@ class EnhancedCostCalculator:
     ) -> float:
         # 1. Fuel & Sustainability (Module 11)
         consumption = v_config.get('consumption_liters_per_100km', 12.0)
-        fuel_price = v_config.get('fuel_price_per_litre', 95.0)
+        fuel_price = v_config.get('fuel_price_per_litre', 100.0)
         green_multiplier = 0.85 if v_config.get('is_electric', False) else 1.0
         fuel_cost = (distance_km / 100.0) * consumption * fuel_price * green_multiplier
 

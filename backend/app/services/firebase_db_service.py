@@ -19,7 +19,8 @@ class FirebaseDBService:
             if "created_at" not in order_data:
                 order_data["created_at"] = datetime.utcnow()
             
-            doc_ref = self.db.collection("orders").document()
+            order_id = str(order_data.get("id")) if order_data.get("id") else None
+            doc_ref = self.db.collection("orders").document(order_id)
             doc_ref.set(order_data)
             logger.info(f"Order added to Firestore: {doc_ref.id}")
             return doc_ref.id
@@ -45,6 +46,17 @@ class FirebaseDBService:
         except Exception as e:
             logger.error(f"Error adding driver to Firestore: {e}")
             return None
+
+    async def delete_driver(self, vehicle_id: str):
+        """Removes a driver/vehicle from the 'drivers' collection."""
+        if not self.db:
+            return
+        try:
+            doc_ref = self.db.collection("drivers").document(vehicle_id)
+            doc_ref.delete()
+            logger.info(f"Driver/Vehicle removed from Firestore: {vehicle_id}")
+        except Exception as e:
+            logger.error(f"Error removing driver {vehicle_id} from Firestore: {e}")
 
     async def update_order_status(self, order_id: str, status: str, extra_data: Optional[Dict[str, Any]] = None):
         """Updates an order's status in Firestore."""

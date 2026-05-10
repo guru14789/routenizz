@@ -6,58 +6,7 @@ import { fetchStreetRoute } from '../../shared/logic/streetRouting';
 import { getFleetColor } from '../../shared/utils/colors';
 import './RouteMap.css';
 
-// ── Weather condition helpers ─────────────────────────────────────────────────
-const WEATHER_EMOJI = {
-    clear: '☀️', partly_cloudy: '⛅', mist: '🌫️', fog: '🌫️',
-    drizzle: '🌦️', heavy_drizzle: '🌧️', rain: '🌧️', showers: '🌦️',
-    heavy_showers: '⛈️', thunderstorm: '⛈️', heavy_storm: '🌪️', unknown: '🌡️',
-};
-
-const SEVERITY_COLORS = {
-    LOW:    { bg: 'rgba(34,197,94,0.15)',  border: '#22c55e', text: '#16a34a' },
-    MEDIUM: { bg: 'rgba(251,146,60,0.15)', border: '#fb923c', text: '#ea580c' },
-    HIGH:   { bg: 'rgba(239,68,68,0.15)',  border: '#ef4444', text: '#dc2626' },
-};
-
-// ── Weather Badge Component ────────────────────────────────────────────────────
-const WeatherBadge = ({ weatherSummary }) => {
-    if (!weatherSummary) return null;
-
-    const { worst_condition = 'clear', severity = 'LOW', max_multiplier = 1.0, affected_count = 0 } = weatherSummary;
-    const emoji = WEATHER_EMOJI[worst_condition] || '🌡️';
-    const colors = SEVERITY_COLORS[severity] || SEVERITY_COLORS.LOW;
-    const extraEta = Math.round((max_multiplier - 1) * 100);
-
-    return (
-        <div style={{
-            position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
-            background: colors.bg, border: `1px solid ${colors.border}`,
-            borderRadius: '10px', padding: '8px 12px',
-            fontFamily: 'Inter, sans-serif', fontSize: '12px',
-            color: colors.text, backdropFilter: 'blur(8px)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '160px',
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px' }}>
-                <span>{emoji}</span>
-                <span style={{ textTransform: 'capitalize' }}>{worst_condition.replace(/_/g, ' ')}</span>
-                <span style={{
-                    marginLeft: 'auto', fontSize: '10px', fontWeight: 800,
-                    background: colors.border, color: '#fff',
-                    borderRadius: '4px', padding: '1px 5px',
-                }}>{severity}</span>
-            </div>
-            {extraEta > 0 && (
-                <div style={{ fontSize: '11px', opacity: 0.85 }}>
-                    ⏱ ETA +{extraEta}% · {affected_count} stop{affected_count !== 1 ? 's' : ''} affected
-                </div>
-            )}
-            {weatherSummary.is_monsoon && (
-                <div style={{ fontSize: '10px', opacity: 0.7, fontStyle: 'italic' }}>🌊 Monsoon season active</div>
-            )}
-        </div>
-    );
-};
+// Helper component to handle map movement without re-mounting the whole MapContainer
 
 // Helper component to handle map movement without re-mounting the whole MapContainer
 const MapController = ({ coords }) => {
@@ -119,7 +68,6 @@ const RouteMap = ({ stops = [], unassignedOrders = [], weatherSummary = null }) 
 
     const [fleetPaths, setFleetPaths] = React.useState({});
     const [previewPath, setPreviewPath] = React.useState([]);
-    const [showWeatherOverlay, setShowWeatherOverlay] = React.useState(false);
     // Open-Meteo does not provide tile layers; we use OpenWeatherMap free tile API.
     // Falls back gracefully with no API key (tiles won't load but map stays functional).
     const OWM_KEY = import.meta.env?.VITE_OPENWEATHER_API_KEY || '';
@@ -203,21 +151,7 @@ const RouteMap = ({ stops = [], unassignedOrders = [], weatherSummary = null }) 
                     opacity={0.6}
                 />
 
-                {/* ── Weather Precipitation Overlay (OpenWeatherMap tile) ──────── */}
-                {showWeatherOverlay && OWM_KEY && (
-                    <TileLayer
-                        url={`https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=${OWM_KEY}`}
-                        opacity={0.55}
-                        attribution='Weather &copy; <a href="https://openweathermap.org">OpenWeatherMap</a>'
-                    />
-                )}
-                {showWeatherOverlay && !OWM_KEY && (
-                    <TileLayer
-                        url="https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png"
-                        opacity={0.4}
-                        attribution='Weather &copy; OpenWeatherMap'
-                    />
-                )}
+                />
 
                 {/* Preview dashed route: shown before optimization runs (when route[] is empty) */}
                 {previewPath.length >= 2 && (
@@ -225,9 +159,9 @@ const RouteMap = ({ stops = [], unassignedOrders = [], weatherSummary = null }) 
                         key="preview-path"
                         positions={previewPath}
                         pathOptions={{
-                            color: '#00f2fe', // Electric Cyan (No Grey)
+                            color: '#111827', // Obsidian Black for high contrast
                             weight: 4,
-                            opacity: 0.6,
+                            opacity: 0.9,
                             lineCap: 'round',
                             lineJoin: 'round',
                             dashArray: '10, 10'
@@ -302,24 +236,6 @@ const RouteMap = ({ stops = [], unassignedOrders = [], weatherSummary = null }) 
                     });
                 })()}
             </MapContainer>
-        {/* Weather overlay toggle button */}
-        <button
-            onClick={() => setShowWeatherOverlay(v => !v)}
-            title={showWeatherOverlay ? 'Hide weather overlay' : 'Show weather overlay'}
-            style={{
-                position: 'absolute', bottom: '16px', left: '16px', zIndex: 1001,
-                background: showWeatherOverlay ? '#3b82f6' : 'rgba(255,255,255,0.92)',
-                color: showWeatherOverlay ? '#fff' : '#374151',
-                border: '1px solid #d1d5db', borderRadius: '8px',
-                padding: '7px 12px', fontSize: '12px', fontWeight: 600,
-                cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: '5px',
-            }}
-        >
-            🌦️ {showWeatherOverlay ? 'Weather ON' : 'Weather OFF'}
-        </button>
-        {/* Weather summary badge (populated after optimization) */}
-        <WeatherBadge weatherSummary={weatherSummary} />
     </div>
 );
 };

@@ -11,14 +11,16 @@ Architecture:
   - Respects a 15-minute cooldown per vehicle to prevent thrashing
 """
 import asyncio
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from app.core.logger import logger
 from app.services.weather_service import weather_service
+from app.core.config import config
 
-
-POLL_INTERVAL_SEC = 600       # 10 minutes between checks
-REROUTE_COOLDOWN_MIN = 15     # Minimum minutes between consecutive reroutes per vehicle
-
+# ── Constants pulled from centralized config (env-tunable) ───────────────────
+POLL_INTERVAL_SEC = config.WEATHER_POLL_INTERVAL_SEC
+REROUTE_COOLDOWN_MIN = config.WEATHER_COOLDOWN_MIN
+_LRU_MAX_VEHICLES = 500  # Max vehicles tracked in memory before oldest is evicted
 
 class WeatherWatchdog:
     """
@@ -33,8 +35,10 @@ class WeatherWatchdog:
     def __init__(self):
         self._running = False
         self._task: asyncio.Task | None = None
-        # Track last reroute time per vehicle: {vehicle_id: datetime}
-        self._last_reroute: dict[str, datetime] = {}
+        # BUG FIX: Use an OrderedDict as an LRU cache to bound memory usage.
+        # Previously: plain dict that grew unbounded for every vehicle ever seen.
+        # Now: at most _LRU_MAX_VEHICLES entries; oldest evicted when full.
+        self._last_reroute: OrderedDict[str, datetime] = OrderedDict()
 
     async def start(self):
         """Starts the watchdog background loop. Called from main.py lifespan."""
@@ -63,7 +67,7 @@ class WeatherWatchdog:
         """
         try:
             from app.services.reopt_service import reopt_service
-            active_routes = reopt_service.get_active_routes()  # Returns {vehicle_id: route_data}
+            active_routes = await reopt_service.get_active_routes()  # Returns {vehicle_id: route_data}
 
             if not active_routes:
                 return
@@ -145,7 +149,11 @@ class WeatherWatchdog:
             logger.info(f"[WeatherWatchdog] 🔄 Triggering Delta Re-Optimization for vehicle {vehicle_id}...")
             new_plan = await vrp_solver.solve_vrp_delta(office, vehicles, stops, current_state)
 
+            # BUG FIX: Update LRU dict and evict oldest entry if over capacity
             self._last_reroute[vehicle_id] = datetime.now()
+            self._last_reroute.move_to_end(vehicle_id)  # mark as most-recently-used
+            if len(self._last_reroute) > _LRU_MAX_VEHICLES:
+                self._last_reroute.popitem(last=False)  # evict oldest (FIFO)
 
             # ── Push to Firebase so mobile driver app gets the update ────────────
             await self._push_reroute_to_firebase(vehicle_id, new_plan, weather_summary)

@@ -6,7 +6,13 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 import datetime
 
-from app.core.auth import create_access_token, verify_password, get_password_hash, get_current_user
+from app.core.auth import (
+    create_access_token,
+    verify_password,
+    get_password_hash,
+    get_current_user,
+    decode_access_token,   # needed for /refresh
+)
 from app.db.database import get_db
 from app.models.db_models import User, Vehicle
 from app.core.config import config
@@ -104,4 +110,35 @@ async def read_users_me(current_user_email: str = Depends(get_current_user), db:
         "role": user.role,
         "vehicle_id": user.vehicle_id,
         "is_active": user.is_active
+    }
+
+
+@router.post("/refresh")
+async def refresh_token(current_user_email: str = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Refresh an existing valid JWT access token.
+
+    BUG FIX: Previously there was no refresh endpoint, forcing admins to re-login
+    every 30 minutes.  Now the frontend can call /refresh before expiry to obtain
+    a new token without interrupting the session.
+
+    Strategy: sliding-window — any valid token can be refreshed.
+    Frontend should call this ~2 minutes before expiry (check `exp` from JWT payload).
+    """
+    result = await db.execute(select(User).where(User.email == current_user_email))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User inactive or not found",
+        )
+
+    new_token = create_access_token(
+        data={"sub": user.email, "role": user.role, "vehicle_id": user.vehicle_id}
+    )
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "role": user.role,
+        "expires_in_minutes": config.ACCESS_TOKEN_EXPIRE_MINUTES,
     }

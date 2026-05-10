@@ -38,7 +38,7 @@ import {
     deleteOrder as firebaseDeleteOrder,
     updateOrder
 } from '@services/firebaseService';
-import { logout as backendLogout, getAuthHeaders } from '@services/backendAuthService';
+import { logout as backendLogout, getAuthHeaders, restoreAuthSession } from '@services/backendAuthService';
 import { API_BASE } from '@app/config';
 import { optimizeWithPersistentHistory } from '@shared/logic/optimizer';
 import { 
@@ -73,7 +73,7 @@ function AppContent() {
     } = useLogistics();
     const { trafficMultiplier, trafficStatus } = useTraffic();
 
-    const [selectedSimulatedDriverId, setSelectedSimulatedDriverId] = useState(null);
+    const [selectedSimulatedDriverId, setSelectedSimulatedDriverId] = useState('V-RAJ-01');
 
     const [currentStopIndex, setCurrentStopIndex] = useState(0);
     const [delayMinutes, setDelayMinutes] = useState(0);
@@ -104,13 +104,17 @@ function AppContent() {
     }, [trafficMultiplier, route, currentStopIndex, isCalculating, delayHistory]);
     useEffect(() => {
         if (orders && orders.length > 0) {
-            const { fuel, carbon } = computeLiveStats(orders, stats, trafficMultiplier);
-            setStats(prev => ({ ...prev, fuel, carbon }));
+            // ONLY compute simulated stats if we don't have a real optimization result from the solver
+            // This prevents "simulated" logic from overwriting "Real Prediction" data
+            if (!stats.optimization_score) {
+                const liveStats = computeLiveStats(orders, stats, trafficMultiplier);
+                setStats(prev => ({ ...prev, ...liveStats }));
+            }
         } else {
             // Reset stats if no orders exist
             setStats({ fuel: 0, carbon: 0, total_cost: 0, breakdown: null });
         }
-    }, [orders, user, route, currentStopIndex, routeStatus, trafficMultiplier]);
+    }, [orders, route, currentStopIndex, routeStatus, trafficMultiplier]);
 
     const handleRecalculateRoute = async () => {
         if (isCalculating) return;
@@ -202,13 +206,15 @@ function AppContent() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    customer_name: o.customer_name,
-                    destination_lat: parseFloat(o.destination_lat),
-                    destination_lng: parseFloat(o.destination_lng),
-                    priority: parseInt(o.priority) || 5,
+                    customer_name: o.customer_name || o.customer,
+                    address: o.address,
+                    destination_lat: parseFloat(o.destination_lat || o.lat),
+                    destination_lng: parseFloat(o.destination_lng || o.lng),
+                    priority: parseInt(o.priority) || (o.priority === 'High' ? 10 : o.priority === 'Low' ? 1 : 5),
                     stop_type: o.stop_type || 'Residential',
-                    weight_kg: parseFloat(o.weight_kg) || 0,
-                    volume_m3: parseFloat(o.volume_m3) || 0,
+                    weight_kg: parseFloat(o.weight_kg || o.weight) || 0,
+                    volume_m3: parseFloat(o.volume_m3 || o.volume) || 
+                               (parseFloat(o.width || 0) * parseFloat(o.height || 0) * parseFloat(o.breadth || 0)) / 1000000 || 0,
                     time_window_end: 86400 
                 }),
             });
@@ -273,7 +279,29 @@ function AppContent() {
         }
     };
     const handleUpdateDriver = (id, up) => firebaseUpdateDriver(id, up).catch(e => console.error(e));
-    const handleDeleteDriver = (id) => firebaseDeleteDriver(id).catch(e => console.error(e));
+    const handleDeleteDriver = async (id) => {
+        try {
+            // 1. Sync to Backend (SQLite)
+            const response = await fetch(`${API_BASE}/api/v1/admin/delete-driver`, {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ vehicle_id: id })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Backend deletion failed:", errorData);
+            }
+
+            // 2. Sync to Firebase for real-time dispatch updates
+            await firebaseDeleteDriver(id);
+        } catch (e) {
+            console.error("Critical: Driver deletion failed:", e);
+        }
+    };
 
     const handleCompleteOrder = async (id) => {
         // Special logic for base-return/start nodes that aren't in Firestore
@@ -370,7 +398,13 @@ function AppContent() {
 import ErrorBoundary from '@components/ErrorBoundary';
 
 // Global App Wrapper with Router Context
-export default function App() { 
+export default function App() {
+    // Restore JWT auto-refresh timer on every page load/reload.
+    // Without this, refresh scheduling is lost when the user navigates away.
+    useEffect(() => {
+        restoreAuthSession();
+    }, []);
+
     return (
         <ErrorBoundary>
             <Router>
@@ -379,5 +413,5 @@ export default function App() {
                 </AppProvider>
             </Router>
         </ErrorBoundary>
-    ); 
+    );
 }

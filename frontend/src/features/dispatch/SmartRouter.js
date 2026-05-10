@@ -144,7 +144,26 @@ const SmartRouter = () => {
                     </button>
                 </div>
 
-                {error && <div className="sr-error">{error}</div>}
+                {error && <div className="sr-error" role="alert" aria-live="polite">{error}</div>}
+
+                {/* Loading skeleton – visible while route is being fetched */}
+                {isLoading && (
+                    <div className="sr-results" aria-label="Loading route results" aria-busy="true">
+                        <div className="result-metric">
+                            <div className="sr-skeleton sr-skeleton-line" style={{ width: '55%' }} />
+                            <div className="sr-skeleton sr-skeleton-value" />
+                        </div>
+                        <div className="result-metric">
+                            <div className="sr-skeleton sr-skeleton-line" style={{ width: '40%' }} />
+                            <div className="sr-skeleton sr-skeleton-line" style={{ width: '30%', height: '22px', marginTop: '4px' }} />
+                        </div>
+                        <div className="congestion-analysis">
+                            <div className="sr-skeleton sr-skeleton-line" style={{ width: '70%' }} />
+                            <div className="sr-skeleton" style={{ height: '80px', width: '100%', marginTop: '8px' }} />
+                            <div className="sr-skeleton sr-skeleton-line" style={{ width: '90%', marginTop: '8px' }} />
+                        </div>
+                    </div>
+                )}
 
                 {result && (
                     <div className="sr-results">

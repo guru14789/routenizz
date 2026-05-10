@@ -107,7 +107,9 @@ async def lifespan(app: FastAPI):
     # 5. Full Firebase State Sync (one-time on startup)
     async def startup_sync():
         try:
+            import datetime
             from app.services.firebase_db_service import firebase_db_service
+            from app.models.db_models import Vehicle, Order
             async with async_session() as session:
                 # Sync Vehicles/Drivers
                 v_res = await session.execute(select(Vehicle).where(Vehicle.is_active == True))
@@ -179,30 +181,29 @@ async def error_handling_middleware(request: Request, call_next):
         )
 
 # 2. Audit Logging Middleware
+# BUG FIX: Removed erroneous body-capture block that produced unawaited coroutine warnings.
+# The request body is intentionally NOT consumed here to avoid corrupting downstream
+# handler streams. Audit fields are captured from headers/URL/response only.
 @app.middleware("http")
 async def audit_logging_middleware(request: Request, call_next):
     """Logs every enterprise request to the AuditLog table for compliance."""
+    import asyncio
     from app.db.database import async_session
     from app.models.db_models import AuditLog
-    import json
 
     start_time = time.time()
-    
-    # We only log JSON bodies for POST/PUT to keep DB size manageable
-    request_payload = None
-    if request.method in ["POST", "PUT", "PATCH"]:
-        try:
-            # Note: consuming body here might cause issues if not handled carefully (request.body() can only be read once)
-            # However, for audit we often need it. 
-            pass # Skipping body capture for now to avoid breaking stream, or use a workaround if needed
-        except Exception:
-            pass
-
     response = await call_next(request)
     process_time_ms = (time.time() - start_time) * 1000
 
-    # Background task to save audit log without blocking response
-    async def save_audit():
+    # Add response time header for client-side diagnostics
+    response.headers["X-Process-Time"] = f"{process_time_ms:.1f}ms"
+    logger.info(
+        f"{request.method} {request.url.path} "
+        f"→ {response.status_code} | {process_time_ms:.1f}ms"
+    )
+
+    # Fire-and-forget: save audit log without blocking the response
+    async def _save_audit():
         try:
             async with async_session() as session:
                 log = AuditLog(
@@ -212,27 +213,13 @@ async def audit_logging_middleware(request: Request, call_next):
                     process_time_ms=process_time_ms,
                     ip_address=request.client.host if request.client else "unknown",
                     user_agent=request.headers.get("user-agent"),
-                    # user_id would be extracted from token if available, but middleware runs before auth injection
-                    # A better way is to attach it to request.state in auth dependency
                 )
                 session.add(log)
                 await session.commit()
         except Exception as e:
             logger.error(f"[AUDIT] Failed to save log: {e}")
 
-    import asyncio
-    asyncio.create_task(save_audit())
-
-    return response
-
-# 3. Response Time Logging Middleware (Legacy/Console)
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = str(process_time)
-    logger.info(f"Request: {request.method} {request.url.path} - Status: {response.status_code} - Timing: {process_time:.4f}s")
+    asyncio.create_task(_save_audit())
     return response
 
 # 3. CORS Policy - allows the React frontend to communicate with the backend

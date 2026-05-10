@@ -138,7 +138,7 @@ const OrderForm = ({ onAddOrder, drivers = [], initialDriverId = '' }) => {
 
         onAddOrder({
             ...formData,
-            id: `ORD${Math.floor(Math.random() * 1000)}`,
+            id: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
             status: 'Pending',
             weight: parseFloat(formData.weight) || 0,
             width: parseFloat(formData.width) || 0,
@@ -345,7 +345,7 @@ const OrderForm = ({ onAddOrder, drivers = [], initialDriverId = '' }) => {
                             <button type="button" className="confirm-loc-btn" onClick={() => {
                                 onAddOrder({
                                     ...formData,
-                                    id: `ORD${Math.floor(Math.random() * 1000)}`,
+                                    id: `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
                                     status: 'Pending',
                                     weight: parseFloat(formData.weight) || 0,
                                     width: parseFloat(formData.width) || 0,

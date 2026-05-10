@@ -179,20 +179,20 @@ const PremiumStats = ({ orders, route, onActiveOrdersClick, onRouteStopsClick, o
                 <>
                     <StatCard
                         title="Total Cost"
-                        value={stats.total_cost > 0 ? `₹${stats.total_cost}` : '0'}
+                        value={stats.total_cost ? `₹${stats.total_cost}` : '₹0'}
                         unit=""
                         icon={<Icons.Currency />}
                         colorClass="stat-green"
-                        trend={stats.breakdown ? `Driver: ₹${stats.breakdown.labor}` : 'Optimized'}
+                        trend={stats.breakdown?.labor ? `Driver: ₹${stats.breakdown.labor}` : 'Optimized'}
                         compact={compact}
                     />
                     <StatCard
-                        title="Fuel Used"
+                        title="ESTIMATED FUEL USED"
                         value={stats.fuel || 0}
                         unit="L"
                         icon={<Icons.Fuel />}
                         colorClass="stat-blue"
-                        trend={stats.breakdown ? `Cost: ₹${stats.breakdown.fuel}` : 'ECO'}
+                        trend={stats.breakdown?.fuel ? `Cost: ₹${stats.breakdown.fuel}` : 'ECO'}
                         compact={compact}
                     />
                 </>

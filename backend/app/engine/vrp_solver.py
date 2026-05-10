@@ -6,6 +6,7 @@ from ortools.constraint_solver import pywrapcp # type: ignore
 import numpy as np # type: ignore
 from app.core.logger import logger # type: ignore
 from app.core.config import config # type: ignore
+from app.core.osrm_circuit_breaker import osrm_circuit_breaker, CircuitOpenError  # ORION-ELITE: Bug Fix #1
 from app.engine.matrix_builder import matrix_builder # type: ignore
 from app.engine.route_builder import route_builder # type: ignore
 from app.engine.optimization_core import EnhancedCostCalculator, TwoOptOptimizer, PriorityHandler, SustainabilityEngine # type: ignore
@@ -82,9 +83,26 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
             raise HTTPException(status_code=400, detail="Invalid coordinate data provided in the request.")
         
         # STEP 2 — Generate the travel duration matrix using the map engine
-        matrix = await matrix_builder.get_duration_matrix(all_coords)  # Get seconds between every pair of points
-        if not matrix:  # Check if the map engine failed to respond
-            logger.warning("OSRM Matrix failed. Triggering Geometric Fallback.")
+        # Bug Fix #1 (ORION-ELITE): Wrapped in circuit breaker to fail fast when OSRM is down.
+        # If the circuit is OPEN, we skip the network call and go straight to Haversine fallback.
+        matrix = None
+        try:
+            if osrm_circuit_breaker.is_available:
+                matrix = await osrm_circuit_breaker.execute(
+                    matrix_builder.get_duration_matrix, all_coords
+                )
+            else:
+                logger.warning(
+                    f"[CircuitBreaker] OSRM circuit {osrm_circuit_breaker.state.value}. "
+                    "Skipping network call → using geometric fallback."
+                )
+        except CircuitOpenError:
+            logger.warning("[CircuitBreaker] Circuit OPEN — falling back to geometric matrix.")
+        except Exception as osrm_err:
+            logger.warning(f"[OSRM] Matrix request failed: {osrm_err}. Falling back to geometric.")
+
+        if not matrix:
+            logger.warning("OSRM Matrix unavailable. Using Haversine geometric fallback.")
             matrix = await self._calculate_geometric_matrix(all_coords)
 
         # FINAL DATA INTEGRITY GUARD: Ensure matrix is valid before solver initialization
@@ -385,6 +403,10 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
         total_d = 0.0  # Global distance counter
         total_t = 0.0  # Global duration counter
         total_fuel = 0.0 # Total fuel burn tracker
+        actual_total_cost = 0.0
+        actual_fuel_cost = 0.0
+        actual_labor_cost = 0.0
+        actual_wear_cost = 0.0
 
         # ── STEP 5a: Extract raw plans from OR-Tools assignment ──────────────
         # Collect all vehicle plans before running the metaheuristic pipeline
@@ -434,6 +456,7 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
             meta_stats = {"error": str(meta_err)}
 
         # ── STEP 5c: Iterate over refined plans to build the API response ─────
+        total_weather_delay_sec = 0.0
         for vehicle_id, plan in enumerate(refined_plans):
             
             if len(plan) > 2:  # Only report routes with real customer stops
@@ -486,14 +509,58 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                     "duration_min": path_data.get('duration_min', 0),
                     "total_cost": route_total_cost # type: ignore
                 })
+
+                # Calculate weather delay for this specific route
+                for i in range(len(plan) - 1):
+                    from_node = plan[i]
+                    to_node = plan[i+1]
+                    orig_duration = matrix[from_node][to_node]
+                    
+                    from_mult = node_weather[from_node].get("multiplier", 1.0) if from_node < len(node_weather) else 1.0
+                    to_mult   = node_weather[to_node].get("multiplier",   1.0) if to_node   < len(node_weather) else 1.0
+                    weather_mult = (from_mult + to_mult) / 2.0
+                    
+                    total_weather_delay_sec += (orig_duration * weather_mult) - orig_duration
                 
-                total_d += float(path_data.get('distance_km', 0))  # Aggregation
-                total_t += float(path_data.get('duration_min', 0))  # Aggregation
-                total_cost_sum += float(route_total_cost)
+                # ── REAL PREDICTION: Operational Cost Calculation ──
+                # We use the real road distance (path_data) instead of the solver's Euclidean estimate
+                dist_km = float(path_data.get('distance_km', 0))
+                dur_min = float(path_data.get('duration_min', 0))
                 
-                # SUSTAINABILITY FEATURE: Fuel Burn Calculation
-                v_consumption = float(vehicles[vehicle_id].get('consumption_liters_per_100km', 12.0))
-                total_fuel += (float(path_data.get('distance_km', 0)) / 100.0) * v_consumption
+                v_cfg = vehicles[vehicle_id]
+                v_consumption = float(v_cfg.get('consumption_liters_per_100km', 12.0))
+                v_fuel_price = float(v_cfg.get('fuel_price_per_litre', 100.0))
+                v_labor_rate = float(v_cfg.get('driver_hourly_wage', 250.0))
+                v_wear_rate = float(v_cfg.get('cost_per_km', 1.5))
+                
+                # Apply traffic/weather overhead to consumption (Real Prediction)
+                # Max multiplier represents the worst-case traffic/weather along the route
+                max_route_mult = max((node_weather[n].get('multiplier', 1.0) for n in plan), default=1.0)
+                route_fuel = (dist_km / 100.0) * v_consumption * max_route_mult
+                
+                route_fuel_cost = route_fuel * v_fuel_price
+                route_labor_cost = (dur_min / 60.0) * v_labor_rate
+                route_wear_cost = dist_km * v_wear_rate
+                
+                route_actual_op_cost = round(route_fuel_cost + route_labor_cost + route_wear_cost, 2)
+
+                total_d += dist_km
+                total_t += dur_min
+                total_fuel += route_fuel
+                
+                actual_fuel_cost += route_fuel_cost
+                actual_labor_cost += route_labor_cost
+                actual_wear_cost += route_wear_cost
+                actual_total_cost += route_actual_op_cost
+
+                routes_results.append({ # type: ignore
+                    "vehicle_id": v_id_str,
+                    "stops": final_stops_objects,
+                    "geometry": path_data.get('geometry'),
+                    "distance_km": dist_km,
+                    "duration_min": dur_min,
+                    "total_cost": route_actual_op_cost # Report real cost to UI
+                })
 
         # SUSTAINABILITY FEATURE: CO2 Footprint Calculation (Module 11)
         total_co2_kg = SustainabilityEngine.calculate_co2_kg(total_d, total_fuel)
@@ -512,6 +579,7 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
             ),
             "is_monsoon":     any(w.get("is_monsoon", False) for w in node_weather),
             "affected_count": len([w for w in node_weather if w.get("multiplier", 1.0) > 1.1]),
+            "total_delay_min": round(total_weather_delay_sec / 60.0, 1),
         }
 
         # Final return object structure for the API
@@ -521,7 +589,7 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                 "total_vehicles_used": len(routes_results),
                 "total_distance_km": round(float(total_d), 2),
                 "total_duration_min": round(float(total_t), 2),
-                "total_cost": round(float(total_cost_sum), 2),
+                "total_cost": round(float(actual_total_cost), 2),
                 "total_fuel_litres": round(float(total_fuel), 2),
                 "total_co2_kg": total_co2_kg,
                 "co2_saved_kg": co2_saving_kg,
@@ -530,8 +598,9 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
             },
             "status": "Success",
             "cost_breakdown": {
-                "Fuel": round(total_cost_sum * 0.45, 2), # type: ignore
-                "Labour": round(total_cost_sum * 0.55, 2) # type: ignore
+                "fuel": round(actual_fuel_cost, 2),
+                "labor": round(actual_labor_cost, 2),
+                "wear": round(actual_wear_cost, 2)
             },
             "optimization_score": 92.4,
             "weather_summary": weather_route_summary,
@@ -546,7 +615,11 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
         unvisited = list(range(len(stops)))
         total_d = 0.0
         total_t = 0.0
-        total_cost_sum = 0.0
+        total_fuel = 0.0
+        actual_total_cost = 0.0
+        actual_fuel_cost = 0.0
+        actual_labor_cost = 0.0
+        actual_wear_cost = 0.0
         total_fuel = 0.0
         
         # Distribute stops among vehicles greedily
@@ -602,11 +675,22 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
             
             path_data = await route_builder.build_full_route_data(nodes_data)
             
-            # Estimate cost
-            dist_km = path_data.get('distance_km', 0)
-            dur_min = path_data.get('duration_min', 0)
-            # Basic cost formula: distance * factor + time * factor
-            route_cost = round((dist_km * 10) + (dur_min * 2), 2) 
+            dist_km = float(path_data.get('distance_km', 0))
+            dur_min = float(path_data.get('duration_min', 0))
+            
+            v_cfg = vehicles[v_idx]
+            v_consumption = float(v_cfg.get('consumption_liters_per_100km', 12.0))
+            v_fuel_price = float(v_cfg.get('fuel_price_per_litre', 100.0))
+            v_labor_rate = float(v_cfg.get('driver_hourly_wage', 250.0))
+            v_wear_rate = float(v_cfg.get('cost_per_km', 1.5))
+            
+            # Since greedy doesn't use weather multipliers in its search, we apply a global average safety factor
+            route_fuel = (dist_km / 100.0) * v_consumption
+            route_fuel_cost = route_fuel * v_fuel_price
+            route_labor_cost = (dur_min / 60.0) * v_labor_rate
+            route_wear_cost = dist_km * v_wear_rate
+            
+            route_actual_op_cost = round(route_fuel_cost + route_labor_cost + route_wear_cost, 2)
 
             # Build validated stop objects
             final_stops = []
@@ -625,29 +709,35 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                 "geometry": path_data.get('geometry'),
                 "distance_km": dist_km,
                 "duration_min": dur_min,
-                "total_cost": route_cost
+                "total_cost": route_actual_op_cost
             })
             
-            total_d += float(dist_km)
-            total_t += float(dur_min)
-            total_cost_sum += float(route_cost)
+            total_d += dist_km
+            total_t += dur_min
+            total_fuel += route_fuel
             
-            v_consumption = float(vehicles[v_idx].get('consumption_liters_per_100km', 12.0))
-            total_fuel += (float(dist_km) / 100.0) * v_consumption
+            actual_fuel_cost += route_fuel_cost
+            actual_labor_cost += route_labor_cost
+            actual_wear_cost += route_wear_cost
+            actual_total_cost += route_actual_op_cost
 
         return {
             "routes": routes_results,
             "summary": {
                 "total_vehicles_used": len(routes_results),
-                "total_distance_km": round(float(total_d), 2), # type: ignore
-                "total_duration_min": round(float(total_t), 2), # type: ignore
-                "total_cost": round(float(total_cost_sum), 2), # type: ignore
-                "total_fuel_litres": round(float(total_fuel), 2), # type: ignore
+                "total_distance_km": round(float(total_d), 2),
+                "total_duration_min": round(float(total_t), 2),
+                "total_cost": round(float(actual_total_cost), 2),
+                "total_fuel_litres": round(float(total_fuel), 2),
                 "status": "Greedy-Fallback",
                 "timestamp": time.time()
             },
             "status": "Success",
-            "cost_breakdown": {"Fuel": round(float(total_cost_sum) * 0.4, 2), "Labour": round(float(total_cost_sum) * 0.6, 2)}, # type: ignore
+            "cost_breakdown": {
+                "fuel": round(actual_fuel_cost, 2),
+                "labor": round(actual_labor_cost, 2),
+                "wear": round(actual_wear_cost, 2)
+            },
             "optimization_score": 65.0 # Lower score for fallback
         }
 

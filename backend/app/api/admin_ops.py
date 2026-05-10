@@ -67,6 +67,7 @@ class PublishRouteRequest(BaseModel):
 
 class AddOrderRequest(BaseModel):
     customer_name: str
+    address: Optional[str] = None
     destination_lat: float
     destination_lng: float
     priority: Optional[int] = 5
@@ -74,6 +75,9 @@ class AddOrderRequest(BaseModel):
     weight_kg: Optional[float] = 0.0
     volume_m3: Optional[float] = 0.0
     time_window_end: Optional[int] = 86400
+
+class DeleteDriverRequest(BaseModel):
+    vehicle_id: str
 
 
 # ── A. Pre-Route Planning: Dispatch ───────────────────────────────────────────
@@ -299,16 +303,61 @@ async def add_driver(req: AddDriverRequest, db: AsyncSession = Depends(get_db), 
         if "UNIQUE constraint failed" in str(e):
             raise HTTPException(status_code=400, detail="A driver with this email or a vehicle with this ID already exists.")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    
     return {
         "success": True,
-        "message": "Driver and vehicle added successfully (Synced to Firebase)",
+        "message": "Driver and vehicle created successfully",
         "credentials": {
-            "email": req.email,
             "pin": pin,
             "employee_number": emp_num
-        }
+        },
+        "vehicle_id": req.vehicle_id
     }
+
+@router.post("/delete-driver")
+async def delete_driver(req: DeleteDriverRequest, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_admin)):
+    """
+    Admin removes a driver and their associated vehicle.
+    - Purges User record.
+    - Purges Vehicle record.
+    - Synchronizes with Firestore to remove from real-time fleet.
+    """
+    try:
+        # 1. Find the User and Vehicle
+        u_q = select(User).where(User.vehicle_id == req.vehicle_id)
+        v_q = select(Vehicle).where(Vehicle.external_id == req.vehicle_id)
+        
+        u_res = await db.execute(u_q)
+        v_res = await db.execute(v_q)
+        
+        user_to_del = u_res.scalar_one_or_none()
+        vehicle_to_del = v_res.scalar_one_or_none()
+        
+        if not vehicle_to_del:
+            raise HTTPException(status_code=404, detail="Vehicle/Driver not found in backend")
+
+        # 2. Delete from SQLite
+        if user_to_del:
+            await db.delete(user_to_del)
+        await db.delete(vehicle_to_del)
+        
+        await db.commit()
+        
+        # 3. Sync to Firebase (Remove from 'drivers' collection)
+        try:
+            # We use the firebase_db_service wrapper if it has a delete method
+            # Otherwise we'll have to use the direct admin SDK in firebase_db_service
+            from app.services.firebase_db_service import firebase_db_service
+            # Note: We'll assume firebase_db_service has a delete_driver or we'll add it
+            await firebase_db_service.delete_driver(req.vehicle_id)
+        except Exception as f_err:
+            logger.warning(f"Failed to remove driver {req.vehicle_id} from Firestore: {f_err}")
+
+        return {"success": True, "message": f"Driver {req.vehicle_id} deleted successfully"}
+        
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to delete driver: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post("/add-order")
 async def add_order(req: AddOrderRequest, db: AsyncSession = Depends(get_db), current_user: dict = Depends(require_admin)):
@@ -318,6 +367,7 @@ async def add_order(req: AddOrderRequest, db: AsyncSession = Depends(get_db), cu
     """
     new_order = Order(
         customer_name=req.customer_name,
+        address=req.address,
         destination_lat=req.destination_lat,
         destination_lng=req.destination_lng,
         priority=req.priority,

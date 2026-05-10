@@ -41,6 +41,7 @@ class LagrangianRelaxation:
     ) -> Tuple[float, Dict]:
         """
         Run subgradient optimisation and return the Lagrangian lower bound.
+        Uses ergodic averaging for stable convergence near optimum.
 
         Returns:
             (lower_bound, stats_dict)
@@ -54,14 +55,18 @@ class LagrangianRelaxation:
         best_lb = float("-inf")
         theta = self.THETA_INIT
         stagnant = 0
+        lb_history: List[float] = []  # ergodic averaging buffer
 
         for k in range(self.MAX_SUBGRADIENT_ITERS):
             # ── 1. Compute Lagrangian objective (relax capacity constraints) ──
             l_cost, violations = self._lagrangian_cost(solution, lambdas)
+            lb_history.append(l_cost)
 
-            # ── 2. Update best lower bound ────────────────────────────────────
-            if l_cost > best_lb:
-                best_lb = l_cost
+            # ── 2. Ergodic average lower bound (more stable than point estimate) ──
+            ergodic_lb = sum(lb_history) / len(lb_history)
+
+            if ergodic_lb > best_lb:
+                best_lb = ergodic_lb
                 stagnant = 0
             else:
                 stagnant += 1
@@ -104,10 +109,13 @@ class LagrangianRelaxation:
     ) -> Tuple[float, List[float]]:
         """
         Evaluate the Lagrangian relaxation objective:
-            L(λ) = travel_cost  −  Σ_k  λ_k × (capacity_k − load_k)
+            L(λ) = travel_cost  +  Σ_k  λ_k × (load_k − capacity_k)
 
-        Also returns the constraint violations v_k = load_k − capacity_k
-        (positive = infeasible, 0 = tight, negative = slack).
+        Violations v_k = load_k − capacity_k:
+          positive = infeasible (capacity exceeded), 0 = tight, negative = slack.
+
+        Note: We ADD the penalty (not subtract) because violations increase cost.
+        This follows Fisher (1981) — relaxing capacity into the primal objective.
         """
         travel_cost = solution.compute_total_cost()
         violations: List[float] = []
@@ -118,13 +126,13 @@ class LagrangianRelaxation:
                 break
             cap = float(solution.vehicles[v_idx].get("capacity", 100))
             load = float(solution.route_demand(route))
-            violation = load - cap          # positive = capacity exceeded
+            violation = load - cap  # positive = capacity exceeded
             violations.append(violation)
             penalty_sum += lambdas[v_idx] * violation
 
-        # L(λ) = travel_cost - Σ λ_k × (load_k - cap_k)
-        # (subtracting because we RELAX the constraint into the objective)
-        l_cost = travel_cost - penalty_sum
+        # BUG FIX: l_cost = travel_cost + penalty (was incorrectly subtracting)
+        # Penalizing infeasibility RAISES the cost, tightening the relaxation.
+        l_cost = travel_cost + penalty_sum
 
         return l_cost, violations
 

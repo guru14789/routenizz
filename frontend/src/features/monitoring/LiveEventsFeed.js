@@ -7,13 +7,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import './LiveEventsFeed.css';
 
 const EVENT_TYPES = {
-  traffic_update:   { icon: '🚦', color: '#f59e0b', label: 'TRAFFIC' },
-  new_order:        { icon: '📦', color: '#6366f1', label: 'ORDER' },
-  driver_delay:     { icon: '⏱', color: '#ef4444', label: 'DELAY' },
-  manual:           { icon: '🛠', color: '#10b981', label: 'MANUAL' },
-  route_updated:    { icon: '🔄', color: '#06b6d4', label: 'ROUTE UPDATE' },
-  intent_learned:   { icon: '🧠', color: '#8b5cf6', label: 'AI LEARNING' },
-  simulation:       { icon: '⚡', color: '#ec4899', label: 'SIMULATION' },
+  traffic_update:   { icon: '🚦', color: '#94a3b8', label: 'TRAFFIC' },
+  new_order:        { icon: '📦', color: '#f1f5f9', label: 'ORDER' },
+  driver_delay:     { icon: '⏱', color: '#64748b', label: 'DELAY' },
+  manual:           { icon: '🛠', color: '#94a3b8', label: 'MANUAL' },
+  route_updated:    { icon: '🔄', color: '#f8fafc', label: 'ROUTE UPDATE' },
+  intent_learned:   { icon: '🧠', color: '#475569', label: 'AI LEARNING' },
+  simulation:       { icon: '⚡', color: '#f1f5f9', label: 'STRESS TEST' },
   default:          { icon: '📡', color: '#94a3b8', label: 'SYSTEM' },
 };
 
@@ -123,7 +123,7 @@ const LiveEventsFeed = ({ apiBase }) => {
       {/* Header */}
       <div className="feed-topbar">
         <div className="feed-title-row">
-          <span className="feed-dot" style={{ background: isConnected ? '#4ade80' : '#f87171' }} />
+          <span className="feed-dot" style={{ background: isConnected ? '#ffffff' : '#64748b' }} />
           <span className="feed-title">Live Re-Opt Feed</span>
           <span className="feed-status">{isConnected ? 'SSE CONNECTED' : 'DEMO MODE'}</span>
         </div>
