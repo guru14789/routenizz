@@ -86,10 +86,10 @@ def optimize_vrp_task(office, vehicles, stops):
                         co2_saved_kg=summary.get("co2_saved_kg", 0),
                         vehicles_count=summary.get("total_vehicles_used", 0),
                         stops_count=len(stops),
-                        raw_results=result.get("routes", []),
+                        raw_results=_json_safe(result.get("routes", [])),
                         optimization_score=result.get("optimization_score", 0),
                         trigger="manual",
-                        explainability_report=explanation
+                        explainability_report=_json_safe(explanation)
                     )
                     session.add(history)
                     await session.commit()
