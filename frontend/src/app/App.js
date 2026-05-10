@@ -81,6 +81,7 @@ function AppContent() {
     const [lastRecalcTime, setLastRecalcTime] = useState(0);
     const [stats, setStats] = useState({ fuel: 0, carbon: 0, total_cost: 0, breakdown: null });
     const [weatherSummary, setWeatherSummary] = useState(null);  // From last VRP solve: { severity, worst_condition, max_multiplier, ... }
+    const [fullRoutesEnriched, setFullRoutesEnriched] = useState([]); // Added: Full route objects with explanations
     
     const navigate = useNavigate();
 
@@ -129,6 +130,7 @@ function AppContent() {
             });
             if (result && result.route) {
                 setRoute(result.route);
+                setFullRoutesEnriched(result.full_routes || []);
                 saveToStorage('route_active', result.route);
                 
                 if (result.stats) {
@@ -175,7 +177,13 @@ function AppContent() {
             handleRecalculateRoute(); 
         }, 1800);
         return () => clearTimeout(timer);
-    }, [JSON.stringify(orders.map(o => ({id: o.id, status: o.status}))), route.length, drivers.length, lastRecalcTime]);
+    }, [
+        orders.filter(o => o.status === 'Pending').length, 
+        orders.length, 
+        route.length, 
+        drivers.length, 
+        lastRecalcTime
+    ]);
 
     // 7 — Event Handlers & Data Mutations
     const handleLogin = (u, selectedRole) => { 
@@ -355,8 +363,8 @@ function AppContent() {
             <Route path="/signup" element={<Navigate to="/admin-login" replace />} />
 
             <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
-            <Route path="/admin/:tab" element={<AdminRouteWrapper {...{user, orders, route, setRoute, isCalculating, onRecalculate: handleRecalculateRoute, onAddOrder: handleAddOrder, onDeleteOrder: handleDeleteOrder, onLogout: handleLogout, onToggleRole: toggleRole, drivers, onAddDriver: handleAddDriver, onUpdateDriver: handleUpdateDriver, onDeleteDriver: handleDeleteDriver, gpsStatus, stats, weatherSummary}} overrideRole={userOverrideRole} loading={authLoading} />} />
-            <Route path="/admin/:tab/:id" element={<AdminRouteWrapper {...{user, orders, route, setRoute, isCalculating, onRecalculate: handleRecalculateRoute, onAddOrder: handleAddOrder, onDeleteOrder: handleDeleteOrder, onLogout: handleLogout, onToggleRole: toggleRole, drivers, onAddDriver: handleAddDriver, onUpdateDriver: handleUpdateDriver, onDeleteDriver: handleDeleteDriver, gpsStatus, stats, weatherSummary}} overrideRole={userOverrideRole} loading={authLoading} />} />
+            <Route path="/admin/:tab" element={<AdminRouteWrapper {...{user, orders, route, setRoute, isCalculating, onRecalculate: handleRecalculateRoute, onAddOrder: handleAddOrder, onDeleteOrder: handleDeleteOrder, onLogout: handleLogout, onToggleRole: toggleRole, drivers, onAddDriver: handleAddDriver, onUpdateDriver: handleUpdateDriver, onDeleteDriver: handleDeleteDriver, gpsStatus, stats, weatherSummary, fullRoutesEnriched}} overrideRole={userOverrideRole} loading={authLoading} />} />
+            <Route path="/admin/:tab/:id" element={<AdminRouteWrapper {...{user, orders, route, setRoute, isCalculating, onRecalculate: handleRecalculateRoute, onAddOrder: handleAddOrder, onDeleteOrder: handleDeleteOrder, onLogout: handleLogout, onToggleRole: toggleRole, drivers, onAddDriver: handleAddDriver, onUpdateDriver: handleUpdateDriver, onDeleteDriver: handleDeleteDriver, gpsStatus, stats, weatherSummary, fullRoutesEnriched}} overrideRole={userOverrideRole} loading={authLoading} />} />
 
 
 

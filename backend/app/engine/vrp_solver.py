@@ -545,6 +545,25 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                 actual_wear_cost += route_wear_cost
                 actual_total_cost += route_actual_op_cost
 
+                # ── ADAPTIVE CONSTRAINT EVALUATION (ORION-ELITE) ──────────────────
+                # Evaluate the route for time-window violations and operational constraints
+                # This provides the "Explainable Dispatch" features required for UPS standards.
+                try:
+                    from app.engine.constraint_engine import AdaptiveConstraintEngine
+                    engine = AdaptiveConstraintEngine()
+                    constraint_result = engine.evaluate_route(
+                        route=nodes_data,
+                        vehicle=v_cfg,
+                        matrix=matrix
+                    )
+                    route_explanations = [v.explanation for v in constraint_result.violations]
+                    # Also log if route is technically infeasible for audit
+                    if not constraint_result.feasible:
+                        logger.warning(f"[ORION-AUDIT] Route for vehicle {v_id_str} is INFEASIBLE: {len(route_explanations)} violations")
+                except Exception as ce:
+                    logger.error(f"Constraint evaluation failed for vehicle {v_id_str}: {ce}")
+                    route_explanations = []
+
                 # Consolidate: Single append with validated objects and real cost
                 routes_results.append({
                     "vehicle_id": v_id_str,
@@ -552,7 +571,8 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                     "geometry": path_data.get('geometry'),
                     "distance_km": dist_km,
                     "duration_min": dur_min,
-                    "total_cost": route_actual_op_cost 
+                    "total_cost": route_actual_op_cost,
+                    "explanations": route_explanations
                 })
 
         # SUSTAINABILITY FEATURE: CO2 Footprint Calculation (Module 11)

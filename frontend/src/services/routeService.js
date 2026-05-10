@@ -70,6 +70,7 @@ export const recalculateSystemRoute = async ({
 
             return {
                 route: finalRoute,
+                full_routes: result.routes,
                 stats: {
                     total_distance_km: result.summary?.total_distance_km,
                     total_duration_min: result.summary?.total_duration_min,
@@ -77,6 +78,7 @@ export const recalculateSystemRoute = async ({
                     fuel: result.summary?.total_fuel_litres,
                     optimization_score: result.optimization_score,
                     vehicles_used: result.summary?.total_vehicles_used,
+                    co2_saved_kg: result.summary?.co2_saved_kg,
                     breakdown: {
                         fuel: result.cost_breakdown?.fuel,
                         labor: result.cost_breakdown?.labor,
