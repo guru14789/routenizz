@@ -2,7 +2,7 @@
  * Stats Calculator: Derived data logic for sustainability and cost analytics.
  */
 
-import { calculateFuelConsumption, calculateCarbonFootprint } from './fuelCalculator';
+import { calculateCarbonFootprint } from './fuelCalculator';
 
 /**
  * Computes live operational metrics based on current route and autonomous environment.

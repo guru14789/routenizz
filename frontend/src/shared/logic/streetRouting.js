@@ -172,7 +172,8 @@ export const fetchRouteMetadata = async (coordinates) => {
             distance: (data.routes[0].distance / 1000).toFixed(2), // KM
             duration: Math.round(data.routes[0].duration / 60) // Minutes
         };
-    } catch (error) {
+    } catch (err) {
+        console.error('Route metadata fetch failed:', err);
         return { distance: 0, duration: 0 };
     }
 };

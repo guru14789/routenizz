@@ -501,15 +501,6 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                         logger.warning(f"Stop validation failed for {s.get('id', 'unknown')}: {ve}")
                         final_stops_objects.append({**s, "driverId": v_id_str})
 
-                routes_results.append({ # type: ignore
-                    "vehicle_id": v_id_str,
-                    "stops": final_stops_objects,
-                    "geometry": path_data.get('geometry'),
-                    "distance_km": path_data.get('distance_km', 0),
-                    "duration_min": path_data.get('duration_min', 0),
-                    "total_cost": route_total_cost # type: ignore
-                })
-
                 # Calculate weather delay for this specific route
                 for i in range(len(plan) - 1):
                     from_node = plan[i]
@@ -553,13 +544,14 @@ class VRPSolver:  # Singleton class to encapsulate the VRP solving logic
                 actual_wear_cost += route_wear_cost
                 actual_total_cost += route_actual_op_cost
 
-                routes_results.append({ # type: ignore
+                # Consolidate: Single append with validated objects and real cost
+                routes_results.append({
                     "vehicle_id": v_id_str,
                     "stops": final_stops_objects,
                     "geometry": path_data.get('geometry'),
                     "distance_km": dist_km,
                     "duration_min": dur_min,
-                    "total_cost": route_actual_op_cost # Report real cost to UI
+                    "total_cost": route_actual_op_cost 
                 })
 
         # SUSTAINABILITY FEATURE: CO2 Footprint Calculation (Module 11)
