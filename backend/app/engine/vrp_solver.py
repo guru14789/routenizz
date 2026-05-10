@@ -10,6 +10,7 @@ from app.core.osrm_circuit_breaker import osrm_circuit_breaker, CircuitOpenError
 from app.engine.matrix_builder import matrix_builder # type: ignore
 from app.engine.route_builder import route_builder # type: ignore
 from app.engine.optimization_core import EnhancedCostCalculator, TwoOptOptimizer, PriorityHandler, SustainabilityEngine # type: ignore
+from app.engine.constraint_engine import constraint_engine # type: ignore
 from app.services.weather_service import weather_service # type: ignore
 from fastapi import HTTPException # type: ignore
 import time

@@ -179,7 +179,14 @@ class AdaptiveConstraintEngine:
             # ── CHECK: Time Window Compliance (SOFT) ──────────────────────────
             tw_start = stop.get("time_window_start", 0)
             tw_end = stop.get("time_window_end", 86400)
-            travel_to_next = matrix[i][i + 1] if i + 1 < len(matrix) else 0
+            
+            # BUG FIX: matrix[i][i+1] was using route position, not node index.
+            # We now use 'matrix_index' from the stop object (0 for depot).
+            curr_node = stop.get("matrix_index", 0)
+            next_stop = route[i + 1] if i + 1 < len(route) else None
+            next_node = next_stop.get("matrix_index", 0) if next_stop else 0
+            
+            travel_to_next = matrix[curr_node][next_node] if next_stop else 0
             cumulative_time += travel_to_next + 300  # 5 min service time
 
             if cumulative_time > tw_end:
